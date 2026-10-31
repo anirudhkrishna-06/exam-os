@@ -207,8 +207,12 @@ const schema = {
   sessionHistoryRelations,
 }
 
+const databaseUrl = process.env.DATABASE_URL
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: databaseUrl,
+  ssl: databaseUrl?.includes('sslmode=require')
+    ? { rejectUnauthorized: false }
+    : undefined,
 })
 
 export const db = drizzle(pool, { schema })

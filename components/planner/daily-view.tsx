@@ -9,6 +9,7 @@ import { SessionEditor } from './session-editor'
 import { DayCapacityEditor } from './day-capacity-editor'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, Target, Plus } from 'lucide-react'
 import { QuickSessionDialog } from './quick-session-dialog'
+import { todayDateString } from '@/lib/date/utils'
 
 type QuickSubject = { id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }
 
@@ -53,9 +54,10 @@ export function DailyView({
 
   // Navigation helpers
   const navigateDay = (offset: number) => {
-    const d = new Date(date)
+    const [year, month, day] = date.split('-').map(Number)
+    const d = new Date(year, month - 1, day)
     d.setDate(d.getDate() + offset)
-    const nextStr = d.toISOString().slice(0, 10)
+    const nextStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     router.push(`/planner/${nextStr}`)
   }
 
@@ -115,7 +117,8 @@ export function DailyView({
   }
 
   // Format date display
-  const dateObj = new Date(date)
+  const [year, month, day] = date.split('-').map(Number)
+  const dateObj = new Date(year, month - 1, day)
   const formattedDate = dateObj.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
@@ -158,7 +161,7 @@ export function DailyView({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => router.push(`/planner/${new Date().toISOString().slice(0, 10)}`)}
+            onClick={() => router.push(`/planner/${todayDateString()}`)}
           >
             Today
           </Button>

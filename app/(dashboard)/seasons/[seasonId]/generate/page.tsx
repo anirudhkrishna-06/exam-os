@@ -4,6 +4,7 @@ import { getSubjectsForSeason } from '@/services/subject.service'
 import { getScheduleSlots } from '@/services/preferences.service'
 import { notFound } from 'next/navigation'
 import { PlanGenerator } from '@/components/planner/plan-generator'
+import { todayDateString } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -30,7 +31,7 @@ export default async function GeneratePlanPage({
         seasonId={seasonId}
         subjects={subjects}
         slots={slots}
-        defaultDate={new Date().toISOString().slice(0, 10)}
+        defaultDate={todayDateString()}
       />
     </div>
   )

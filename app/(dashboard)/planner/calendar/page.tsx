@@ -5,6 +5,7 @@ import { getSubjectsForSeason } from '@/services/subject.service'
 import { getCapacityOverridesForSeason } from '@/services/capacity.service'
 import { getScheduleSlots } from '@/services/preferences.service'
 import { CalendarView } from '@/components/planner/calendar-view'
+import { todayDateString } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -16,9 +17,9 @@ export default async function PlannerCalendarPage({
   const user = await requireAuth()
   const { year: qYear, month: qMonth } = await searchParams
 
-  const now = new Date()
-  const year = qYear ? parseInt(qYear, 10) : now.getFullYear()
-  const month = qMonth ? parseInt(qMonth, 10) : now.getMonth() + 1
+  const today = todayDateString()
+  const year = qYear ? parseInt(qYear, 10) : Number(today.slice(0, 4))
+  const month = qMonth ? parseInt(qMonth, 10) : Number(today.slice(5, 7))
 
   const seasons = await getSeasonsForUser(user.id)
   const activeSeason = seasons.find((s) => s.status === 'active') || seasons[0]

@@ -2,12 +2,13 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { todayDateString } from '@/lib/date/utils'
 
 export default function PlannerIndexPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayDateString()
     router.replace(`/planner/${today}`)
   }, [router])
 

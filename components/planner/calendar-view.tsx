@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, BookOpen, Plus } from 'lucide-react'
 import { QuickSessionDialog } from './quick-session-dialog'
+import { todayDateString } from '@/lib/date/utils'
 
 interface CalendarSession {
   id: string
@@ -69,7 +70,7 @@ export function CalendarView({
   // Days calculations
   const daysInMonth = new Date(year, month, 0).getDate()
   const firstDayOfWeek = new Date(year, month - 1, 1).getDay() // 0 = Sun
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = todayDateString()
 
   // Map exam dates
   const examMap = new Map<string, Array<{ subjectName: string; color: string }>>()

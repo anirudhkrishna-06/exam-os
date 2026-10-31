@@ -96,6 +96,7 @@ async function assemblePlannerInput(userId: string, seasonId: string): Promise<P
       unitNumber: u.unitNumber,
       unitName: u.name,
       initialStatus: u.initialStatus,
+      difficulty: u.difficulty,
       activities: u.unitActivities.map(a => ({
         activityId: a.id,
         activityType: a.activityType,
@@ -389,5 +390,62 @@ export async function getPlanSummary(userId: string, seasonId: string) {
     completedSessions,
     hasPlan: !!hasPlan,
   }
+}
+
+export async function createManualSession(
+  userId: string,
+  data: {
+    seasonId: string
+    activityId: string
+    scheduledDate: string
+    slotName: string
+    startTime: string
+    endTime: string
+    estimatedDurationMinutes: number
+  },
+) {
+  const subjectRows = await db.query.subjects.findMany({
+    where: and(eq(subjects.seasonId, data.seasonId), eq(subjects.userId, userId)),
+    with: { units: { with: { unitActivities: true } } },
+  })
+  const activity = subjectRows.flatMap((s) => s.units.flatMap((u) => u.unitActivities)).find((a) => a.id === data.activityId)
+  if (!activity) throw new Error('Activity not found')
+
+  const [versionResult] = await db
+    .select({ maxVersion: max(planVersions.versionNumber) })
+    .from(planVersions)
+    .where(and(eq(planVersions.seasonId, data.seasonId), eq(planVersions.userId, userId)))
+  const [version] = await db.insert(planVersions).values({
+    seasonId: data.seasonId,
+    userId,
+    versionNumber: (versionResult?.maxVersion ?? 0) + 1,
+    generationType: 'manual',
+  }).returning()
+
+  const existing = await db.query.studySessions.findMany({
+    where: and(
+      eq(studySessions.userId, userId),
+      eq(studySessions.seasonId, data.seasonId),
+      eq(studySessions.scheduledDate, data.scheduledDate),
+    ),
+  })
+  if (existing.some((session) => session.slotName === data.slotName)) {
+    throw new Error('That time slot already has a session on this date')
+  }
+  const [session] = await db.insert(studySessions).values({
+    ...data,
+    userId,
+    planVersionId: version.id,
+    position: existing.length,
+    status: 'scheduled',
+  }).returning()
+  await db.insert(sessionHistory).values({
+    studySessionId: session.id,
+    userId,
+    newDate: session.scheduledDate,
+    newStatus: 'scheduled',
+    action: 'created',
+  })
+  return session
 }
 

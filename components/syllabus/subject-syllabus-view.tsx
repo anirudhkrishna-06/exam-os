@@ -28,6 +28,7 @@ interface Unit {
   unitNumber: number
   name: string
   initialStatus: 'new' | 'partially_studied' | 'previously_studied'
+  difficulty: 'easy' | 'medium' | 'hard'
   position: number
   unitActivities: Activity[]
 }
@@ -86,6 +87,15 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
     } catch (err) {
       showMessage('Error saving unit status', 'error')
     }
+  }
+
+  async function handleUnitDifficultyChange(unitId: string, difficulty: Unit['difficulty']) {
+    setSubject((prev) => ({ ...prev, units: prev.units.map((u) => u.id === unitId ? { ...u, difficulty } : u) }))
+    const res = await fetch(`/api/units/${unitId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ difficulty }),
+    })
+    if (!res.ok) showMessage('Error saving unit difficulty', 'error')
+    else showMessage('Unit difficulty updated')
   }
 
   // Save renamed unit
@@ -352,6 +362,19 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
                     <option value="new">New</option>
                     <option value="partially_studied">Partially Studied</option>
                     <option value="previously_studied">Previously Studied</option>
+                  </Select>
+                  <Label htmlFor={`difficulty-${unit.id}`} className="text-xs text-muted-foreground">
+                    Difficulty:
+                  </Label>
+                  <Select
+                    id={`difficulty-${unit.id}`}
+                    value={unit.difficulty}
+                    onChange={(e) => handleUnitDifficultyChange(unit.id, e.target.value as Unit['difficulty'])}
+                    className="h-8 text-xs w-28 bg-background"
+                  >
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
                   </Select>
                 </div>
               </div>

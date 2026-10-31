@@ -15,6 +15,13 @@
       "when": 1793467391306,
       "tag": "0001_smart_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793475845542,
+      "tag": "0002_lean_skullbuster",
+      "breakpoints": true
     }
   ]
 }

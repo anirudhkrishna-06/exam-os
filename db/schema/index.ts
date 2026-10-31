@@ -5,7 +5,7 @@ export { userPreferences } from './user-preferences'
 export { dailySessionTemplates } from './daily-templates'
 export { examSeasons, seasonStatusEnum } from './exam-seasons'
 export { subjects } from './subjects'
-export { units, unitInitialStatusEnum } from './units'
+export { units, unitInitialStatusEnum, unitDifficultyEnum } from './units'
 export { unitActivities, activityTypeEnum, activityStatusEnum } from './activities'
 // Phase 2
 export { dailyCapacity } from './daily-capacity'

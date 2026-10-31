@@ -4,7 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { CalendarDays, ChevronRight, BookOpen, Sparkles, Clock } from 'lucide-react'
+import { CalendarDays, ChevronRight, BookOpen, CalendarPlus, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatDate, daysUntil } from '@/lib/date/utils'
 
@@ -60,8 +60,8 @@ export default async function SeasonPage({
         <div className="flex items-center gap-2">
           <Link href={`/seasons/${season.id}/generate`}>
             <Button size="sm" className="gap-2">
-              <Sparkles className="w-4 h-4" />
-              Generate Study Plan
+              <CalendarPlus className="w-4 h-4" />
+              Plan a Session
             </Button>
           </Link>
           <Link href="/planner">

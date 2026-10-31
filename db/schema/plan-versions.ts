@@ -3,6 +3,7 @@ import { users } from './users'
 import { examSeasons } from './exam-seasons'
 
 export const generationTypeEnum = pgEnum('generation_type', [
+  'manual',
   'initial',
   'manual_regeneration',
   'automatic_reschedule',

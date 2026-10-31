@@ -2,230 +2,69 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
-import { Sparkles, Calendar, BookOpen, Clock, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { CalendarPlus, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
-interface PlanSummary {
-  season: {
-    id: string
-    name: string
-    startDate: string
-    endDate: string
-    status: string
-  }
-  subjects: number
-  totalActivities: number
-  enabledActivities: number
-  estimatedTotalSessions: number
-  completedSessions: number
-  hasPlan: boolean
-}
+type Activity = { id: string; activityType: string; enabled: boolean; status: string }
+type Unit = { id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Activity[] }
+type Subject = { id: string; name: string; examDate: string; units: Unit[] }
+type Slot = { name: string; startTime: string; endTime: string; isEnabled: boolean }
+const labels: Record<string, string> = { theory_1: 'Theory 1', theory_2: 'Theory 2', numericals: 'Numericals', previous_papers: 'Previous papers', revision: 'Revision' }
 
-interface PlanGeneratorProps {
-  seasonId: string
-  summary: PlanSummary
-}
-
-export function PlanGenerator({ seasonId, summary }: PlanGeneratorProps) {
+export function PlanGenerator({ seasonId, subjects, slots, defaultDate }: { seasonId: string; subjects: Subject[]; slots: Slot[]; defaultDate: string }) {
   const router = useRouter()
-  const [generating, setGenerating] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<any | null>(null)
+  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '')
+  const subject = subjects.find((s) => s.id === subjectId)
+  const [unitId, setUnitId] = useState(subject?.units[0]?.id ?? '')
+  const unit = subject?.units.find((u) => u.id === unitId)
+  const [activityId, setActivityId] = useState(unit?.unitActivities.find((a) => a.enabled && a.status !== 'completed')?.id ?? '')
+  const [date, setDate] = useState(defaultDate)
+  const enabledSlots = slots.filter((s) => s.isEnabled)
+  const [slotName, setSlotName] = useState(enabledSlots[0]?.name ?? '')
+  const [duration, setDuration] = useState(60)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const enabledActivities = unit?.unitActivities.filter((a) => a.enabled && a.status !== 'completed') ?? []
+  const selectedSlot = enabledSlots.find((s) => s.name === slotName)
 
-  const handleGenerate = async () => {
-    setGenerating(true)
-    setError(null)
-    setResult(null)
-    try {
-      const res = await fetch(`/api/seasons/${seasonId}/plan`, {
-        method: 'POST',
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to generate plan')
-      setResult(data)
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setGenerating(false)
-    }
+  function changeSubject(value: string) {
+    const next = subjects.find((s) => s.id === value)
+    setSubjectId(value); setUnitId(next?.units[0]?.id ?? '')
+    setActivityId(next?.units[0]?.unitActivities.find((a) => a.enabled && a.status !== 'completed')?.id ?? '')
+  }
+  function changeUnit(value: string) {
+    const next = subject?.units.find((u) => u.id === value)
+    setUnitId(value); setActivityId(next?.unitActivities.find((a) => a.enabled && a.status !== 'completed')?.id ?? '')
+  }
+  async function addSession() {
+    if (!activityId || !selectedSlot) return
+    setSaving(true); setMessage(null)
+    const res = await fetch('/api/seasons/' + seasonId + '/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activityId, scheduledDate: date, slotName, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime, estimatedDurationMinutes: duration }) })
+    const data = await res.json(); setSaving(false)
+    setMessage(res.ok ? 'Session added. Add another one or open your planner.' : (data.error ?? 'Could not add session'))
   }
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <Card className="border">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-              Automatic Study Planner
-            </span>
-            {summary.hasPlan && (
-              <Badge variant="outline" className="text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
-                Plan Active
-              </Badge>
-            )}
-          </div>
-          <CardTitle className="text-2xl mt-1">
-            {summary.hasPlan ? 'Regenerate Study Plan' : 'Generate Study Plan'}
-          </CardTitle>
-          <CardDescription>
-            Your nearest exam is always the active focus. The planner gives newer and heavier units more priority, schedules revision near the deadline, and rotates through your available time slots naturally.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
-          {/* Readiness Summary Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-3 border rounded-lg bg-muted/20">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
-                <Calendar className="w-3.5 h-3.5 text-primary" />
-                Duration
-              </span>
-              <p className="text-sm font-semibold">
-                {summary.season.startDate}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                to {summary.season.endDate}
-              </p>
-            </div>
-
-            <div className="p-3 border rounded-lg bg-muted/20">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
-                <BookOpen className="w-3.5 h-3.5 text-blue-500" />
-                Subjects
-              </span>
-              <p className="text-xl font-bold">{summary.subjects}</p>
-              <p className="text-xs text-muted-foreground">in this season</p>
-            </div>
-
-            <div className="p-3 border rounded-lg bg-muted/20">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
-                <Clock className="w-3.5 h-3.5 text-amber-500" />
-                Activities
-              </span>
-              <p className="text-xl font-bold">{summary.enabledActivities}</p>
-              <p className="text-xs text-muted-foreground">enabled for study</p>
-            </div>
-
-            <div className="p-3 border rounded-lg bg-muted/20">
-              <span className="text-xs text-muted-foreground flex items-center gap-1.5 mb-1">
-                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
-                Sessions
-              </span>
-              <p className="text-xl font-bold">{summary.estimatedTotalSessions}</p>
-              <p className="text-xs text-muted-foreground">total required</p>
-            </div>
-          </div>
-
-          {/* Warnings or info */}
-          {summary.subjects === 0 && (
-            <Alert variant="destructive">
-              <AlertTriangle className="w-4 h-4" />
-              <AlertTitle>No subjects added yet</AlertTitle>
-              <AlertDescription>
-                You must add at least one subject with exam dates before generating a plan.
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertTriangle className="w-4 h-4" />
-              <AlertTitle>Plan Generation Failed</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Success Summary */}
-          {result && (
-            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-5 space-y-4">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                <h4 className="font-semibold text-emerald-800 dark:text-emerald-300">
-                  Plan Generated Successfully!
-                </h4>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-card p-2.5 rounded border">
-                  <span className="text-muted-foreground">Scheduled</span>
-                  <p className="text-base font-bold text-foreground">
-                    {result.output?.stats?.scheduled ?? 0} sessions
-                  </p>
-                </div>
-                <div className="bg-card p-2.5 rounded border">
-                  <span className="text-muted-foreground">Slots Used</span>
-                  <p className="text-base font-bold text-foreground">
-                    {result.output?.stats?.slotsUsed ?? 0}
-                  </p>
-                </div>
-                <div className="bg-card p-2.5 rounded border">
-                  <span className="text-muted-foreground">Slots Available</span>
-                  <p className="text-base font-bold text-foreground">
-                    {result.output?.stats?.slotsAvailable ?? 0}
-                  </p>
-                </div>
-                <div className="bg-card p-2.5 rounded border">
-                  <span className="text-muted-foreground">Unscheduled</span>
-                  <p className="text-base font-bold text-foreground">
-                    {result.output?.stats?.unscheduled ?? 0}
-                  </p>
-                </div>
-              </div>
-
-              {/* Workload warnings if any */}
-              {result.output?.warnings && result.output.warnings.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-emerald-500/20">
-                  <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Workload Warnings ({result.output.warnings.length})
-                  </span>
-                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                    {result.output.warnings.map((w: any, idx: number) => (
-                      <p key={idx} className="text-xs text-muted-foreground bg-card/60 p-2 rounded border">
-                        {w.message}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="pt-2 flex justify-end">
-                <Button
-                  onClick={() => router.push(`/planner/${summary.season.startDate > new Date().toISOString().slice(0, 10) ? summary.season.startDate : new Date().toISOString().slice(0, 10)}`)}
-                >
-                  View Daily Planner
-                  <ArrowRight className="w-4 h-4 ml-1.5" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-
-        <CardFooter className="flex justify-between border-t bg-muted/10 py-4">
-          <Button
-            variant="outline"
-            onClick={() => router.push(`/seasons/${seasonId}`)}
-          >
-            Back to Season
-          </Button>
-
-          <Button
-            disabled={generating || summary.subjects === 0}
-            onClick={handleGenerate}
-          >
-            <Sparkles className={`w-4 h-4 mr-2 ${generating ? 'animate-spin' : ''}`} />
-            {generating
-              ? 'Generating Plan...'
-              : summary.hasPlan
-              ? 'Regenerate Study Plan'
-              : 'Generate Study Plan'}
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
-  )
+  return <div className="mx-auto max-w-3xl space-y-6">
+    <Button variant="ghost" size="sm" onClick={() => router.push('/seasons/' + seasonId)}><ArrowLeft className="mr-2 h-4 w-4" />Back to season</Button>
+    <Card><CardHeader><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Manual planner</p><CardTitle className="text-2xl">Build your day, one session at a time</CardTitle><CardDescription>No automatic schedule will fill your calendar. Choose exactly what you want to study, when you want to study it, and leave the rest open.</CardDescription></CardHeader>
+      <CardContent className="space-y-5">
+        {message && <Alert><CheckCircle2 className="h-4 w-4" /><AlertDescription>{message}</AlertDescription></Alert>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2"><Label>Subject</Label><Select value={subjectId} onChange={(e) => changeSubject(e.target.value)}>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name} · exam {s.examDate}</option>)}</Select></div>
+          <div className="space-y-2"><Label>Unit</Label><Select value={unitId} onChange={(e) => changeUnit(e.target.value)}>{subject?.units.map((u) => <option key={u.id} value={u.id}>Unit {u.unitNumber} · {u.name} · {u.difficulty}</option>)}</Select></div>
+          <div className="space-y-2"><Label>What will you do?</Label><Select value={activityId} onChange={(e) => setActivityId(e.target.value)}>{enabledActivities.map((a) => <option key={a.id} value={a.id}>{labels[a.activityType] ?? a.activityType}</option>)}</Select></div>
+          <div className="space-y-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+          <div className="space-y-2"><Label>Time slot</Label><Select value={slotName} onChange={(e) => setSlotName(e.target.value)}>{enabledSlots.map((s) => <option key={s.name} value={s.name}>{s.name} · {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}</option>)}</Select></div>
+          <div className="space-y-2"><Label>Planned minutes</Label><Input type="number" min={15} max={240} value={duration} onChange={(e) => setDuration(Number(e.target.value))} /></div>
+        </div>
+        {unit && <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{unit.name} is marked <span className="font-semibold text-foreground">{unit.difficulty}</span>. Use that as a cue for effort; the app will not force extra sessions.</p>}
+        <Button className="w-full sm:w-auto" disabled={saving || !activityId || !selectedSlot || !date} onClick={addSession}><CalendarPlus className="mr-2 h-4 w-4" />{saving ? 'Adding…' : 'Add session to planner'}</Button>
+      </CardContent>
+    </Card>
+  </div>
 }
-

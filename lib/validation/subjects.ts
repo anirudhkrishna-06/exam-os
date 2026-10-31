@@ -18,6 +18,7 @@ export const updateSubjectSchema = z.object({
 export const updateUnitSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   initialStatus: z.enum(['new', 'partially_studied', 'previously_studied']).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
 })
 
 export const updateActivitySchema = z.object({

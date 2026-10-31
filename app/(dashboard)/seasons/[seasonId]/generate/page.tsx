@@ -1,5 +1,7 @@
 import { requireAuth } from '@/lib/auth/session'
 import { getPlanSummary } from '@/services/planner.service'
+import { getSubjectsForSeason } from '@/services/subject.service'
+import { getScheduleSlots } from '@/services/preferences.service'
 import { notFound } from 'next/navigation'
 import { PlanGenerator } from '@/components/planner/plan-generator'
 
@@ -13,14 +15,23 @@ export default async function GeneratePlanPage({
   const user = await requireAuth()
   const { seasonId } = await params
   const summary = await getPlanSummary(user.id, seasonId)
+  const [subjects, slots] = await Promise.all([
+    getSubjectsForSeason(user.id, seasonId),
+    getScheduleSlots(user.id),
+  ])
 
   if (!summary) {
     notFound()
   }
 
   return (
-    <div className="py-6">
-      <PlanGenerator seasonId={seasonId} summary={summary} />
+    <div className="px-4 py-6 sm:px-6">
+      <PlanGenerator
+        seasonId={seasonId}
+        subjects={subjects}
+        slots={slots}
+        defaultDate={new Date().toISOString().slice(0, 10)}
+      />
     </div>
   )
 }

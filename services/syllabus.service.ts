@@ -22,7 +22,7 @@ async function verifyUnitOwnership(userId: string, unitId: string) {
 export async function updateUnit(
   userId: string,
   unitId: string,
-  data: { name?: string; initialStatus?: 'new' | 'partially_studied' | 'previously_studied' }
+  data: { name?: string; initialStatus?: 'new' | 'partially_studied' | 'previously_studied'; difficulty?: 'easy' | 'medium' | 'hard' }
 ) {
   await verifyUnitOwnership(userId, unitId)
 

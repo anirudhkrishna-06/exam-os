@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button'
 import { SessionCard, type SessionCardData } from './session-card'
 import { SessionEditor } from './session-editor'
 import { DayCapacityEditor } from './day-capacity-editor'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, Target } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, Target, Plus } from 'lucide-react'
+import { QuickSessionDialog } from './quick-session-dialog'
+
+type QuickSubject = { id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }
 
 interface DailyViewProps {
   date: string
@@ -30,6 +33,7 @@ interface DailyViewProps {
     examDate: string
     color: string
   }>
+  subjects: QuickSubject[]
 }
 
 export function DailyView({
@@ -40,10 +44,12 @@ export function DailyView({
   capacityOverride,
   defaultSessionsPerDay,
   upcomingExams,
+  subjects,
 }: DailyViewProps) {
   const router = useRouter()
   const [selectedSession, setSelectedSession] = useState<SessionCardData | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
 
   // Navigation helpers
   const navigateDay = (offset: number) => {
@@ -134,6 +140,12 @@ export function DailyView({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setQuickAddOpen(true)}
+          >
+            <Plus className="mr-1 h-4 w-4" /> Add session
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -295,6 +307,7 @@ export function DailyView({
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
       />
+      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} seasonId={seasonId} date={date} subjects={subjects} slots={templates} onAdded={() => router.refresh()} />}
     </div>
   )
 }

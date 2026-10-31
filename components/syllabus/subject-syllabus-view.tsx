@@ -235,7 +235,7 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border">
           <Layers className="h-4 w-4 text-primary" />
-          <span>5 Units · 25 Activities Total</span>
+          <span>{subject.units.length} Units · {subject.units.reduce((total, unit) => total + unit.unitActivities.length, 0)} Activities Total</span>
         </div>
       </div>
 
@@ -245,8 +245,14 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
         </Alert>
       )}
 
-      {/* Bulk actions control bar */}
-      <Card className="border bg-muted/20">
+      {/* Secondary controls stay tucked away so the core unit setup remains calm. */}
+      <details className="group rounded-xl border bg-muted/20">
+        <summary className="flex cursor-pointer list-none items-center gap-2 p-4 text-sm font-semibold marker:hidden">
+          <Sliders className="h-4 w-4 text-primary" />
+          Advanced syllabus preferences
+          <span className="ml-auto text-xs font-normal text-muted-foreground group-open:hidden">Optional</span>
+        </summary>
+      <Card className="border-0 border-t bg-transparent shadow-none rounded-none">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <Sliders className="h-4 w-4 text-primary" />
@@ -301,6 +307,7 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
           </div>
         </CardContent>
       </Card>
+      </details>
 
       {/* Units list */}
       <div className="space-y-4">
@@ -379,7 +386,11 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
                 </div>
               </div>
 
-              {/* Unit Activities Table */}
+              {/* Optional activity controls */}
+              <details className="group">
+                <summary className="cursor-pointer list-none border-t bg-muted/20 px-4 py-3 text-xs font-medium text-muted-foreground marker:hidden">
+                  Activity details <span className="float-right group-open:hidden">Set progress, weight, and sessions</span>
+                </summary>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
@@ -463,6 +474,7 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
                   </table>
                 </div>
               </CardContent>
+              </details>
             </Card>
           )
         })}

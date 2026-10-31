@@ -3,6 +3,7 @@ import { getSessionsForMonth } from '@/services/session.service'
 import { getSeasonsForUser } from '@/services/season.service'
 import { getSubjectsForSeason } from '@/services/subject.service'
 import { getCapacityOverridesForSeason } from '@/services/capacity.service'
+import { getScheduleSlots } from '@/services/preferences.service'
 import { CalendarView } from '@/components/planner/calendar-view'
 
 export const instant = false
@@ -22,10 +23,11 @@ export default async function PlannerCalendarPage({
   const seasons = await getSeasonsForUser(user.id)
   const activeSeason = seasons.find((s) => s.status === 'active') || seasons[0]
 
-  const [rawSessionsByDate, seasonSubjects, capacityOverrides] = await Promise.all([
+  const [rawSessionsByDate, seasonSubjects, capacityOverrides, slots] = await Promise.all([
     getSessionsForMonth(user.id, year, month),
     activeSeason ? getSubjectsForSeason(user.id, activeSeason.id) : Promise.resolve([]),
     activeSeason ? getCapacityOverridesForSeason(user.id, activeSeason.id) : Promise.resolve([]),
+    getScheduleSlots(user.id),
   ])
 
   // Extract exam dates
@@ -71,6 +73,15 @@ export default async function PlannerCalendarPage({
         sessionsByDate={sessionsByDate}
         examDates={examDates}
         restDates={restDates}
+        seasonId={activeSeason?.id ?? ''}
+        subjects={seasonSubjects.map((subject) => ({
+          id: subject.id, name: subject.name, examDate: subject.examDate, color: subject.color,
+          units: subject.units.map((unit) => ({
+            id: unit.id, unitNumber: unit.unitNumber, name: unit.name, difficulty: unit.difficulty,
+            unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status })),
+          })),
+        }))}
+        slots={slots}
       />
     </div>
   )

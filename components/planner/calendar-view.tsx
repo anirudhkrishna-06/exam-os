@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, BookOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, BookOpen, Plus } from 'lucide-react'
+import { QuickSessionDialog } from './quick-session-dialog'
 
 interface CalendarSession {
   id: string
@@ -30,6 +31,9 @@ interface CalendarViewProps {
   sessionsByDate: Record<string, CalendarSession[]>
   examDates?: Array<{ subjectName: string; examDate: string; color: string }>
   restDates?: string[]
+  seasonId: string
+  subjects: Array<{ id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }>
+  slots: Array<{ name: string; startTime: string; endTime: string; isEnabled?: boolean }>
 }
 
 export function CalendarView({
@@ -38,10 +42,14 @@ export function CalendarView({
   sessionsByDate,
   examDates = [],
   restDates = [],
+  seasonId,
+  subjects,
+  slots,
 }: CalendarViewProps) {
   const router = useRouter()
   const [year, setYear] = useState(initialYear)
   const [month, setMonth] = useState(initialMonth) // 1-12
+  const [quickDate, setQuickDate] = useState<string | null>(null)
 
   const navigateMonth = (offset: number) => {
     let nextMonth = month + offset
@@ -177,6 +185,9 @@ export function CalendarView({
                       <Coffee className="w-3.5 h-3.5 text-amber-500" />
                     </span>
                   )}
+                  <button type="button" className="rounded-full p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary" title="Add session" onClick={(event) => { event.stopPropagation(); setQuickDate(dateStr) }}>
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
                 {/* Badges / indicators */}
@@ -227,6 +238,7 @@ export function CalendarView({
           })}
         </div>
       </div>
+      {quickDate && <QuickSessionDialog open={!!quickDate} onOpenChange={(open) => !open && setQuickDate(null)} seasonId={seasonId} date={quickDate} subjects={subjects} slots={slots} onAdded={() => { setQuickDate(null); router.refresh() }} />}
     </div>
   )
 }

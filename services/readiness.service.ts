@@ -1,0 +1,119 @@
+// ============================================================
+// services/readiness.service.ts
+// Computes factual, transparent exam readiness metrics for subjects.
+// ============================================================
+
+import { db } from '@/db'
+import { getSeasonProgress } from './progress.service'
+import { dailyCapacity } from '@/db/schema/daily-capacity'
+import { dailySessionTemplates } from '@/db/schema/daily-templates'
+import { eq, and, sql } from 'drizzle-orm'
+import { daysUntil } from '@/lib/date/utils'
+
+export interface UnitReadinessSummary {
+  unitId: string
+  unitNumber: number
+  unitName: string
+  percentComplete: number
+  status: 'not_started' | 'in_progress' | 'completed'
+}
+
+export interface SubjectReadiness {
+  subjectId: string
+  subjectName: string
+  color: string
+  examDate: string
+  daysRemaining: number
+  percentComplete: number
+  totalRequiredSessions: number
+  completedSessions: number
+  remainingSessions: number
+  unitsCompleted: number
+  unitsInProgress: number
+  unitsNotStarted: number
+  units: UnitReadinessSummary[]
+  isOverloaded: boolean
+  availableCapacityBeforeExam: number
+  shortfallSessions: number
+}
+
+export async function getExamReadiness(
+  userId: string,
+  seasonId: string,
+): Promise<SubjectReadiness[]> {
+  const seasonProgress = await getSeasonProgress(userId, seasonId)
+  if (!seasonProgress) return []
+
+  const defaultTemplates = await db
+    .select({
+      cnt: sql<number>`count(*)`,
+    })
+    .from(dailySessionTemplates)
+    .where(and(eq(dailySessionTemplates.userId, userId), eq(dailySessionTemplates.isEnabled, true)))
+
+  const defaultDailyCapacity = Number(defaultTemplates[0]?.cnt || 3)
+
+  const readinessList: SubjectReadiness[] = []
+
+  for (const subject of seasonProgress.subjects) {
+    const daysRemaining = Math.max(0, daysUntil(subject.examDate))
+
+    let unitsCompleted = 0
+    let unitsInProgress = 0
+    let unitsNotStarted = 0
+
+    const unitSummaries: UnitReadinessSummary[] = subject.units.map((u) => {
+      let status: 'not_started' | 'in_progress' | 'completed' = 'not_started'
+      if (u.percentComplete >= 100) {
+        status = 'completed'
+        unitsCompleted++
+      } else if (u.percentComplete > 0) {
+        status = 'in_progress'
+        unitsInProgress++
+      } else {
+        unitsNotStarted++
+      }
+
+      return {
+        unitId: u.unitId,
+        unitNumber: u.unitNumber,
+        unitName: u.unitName,
+        percentComplete: u.percentComplete,
+        status,
+      }
+    })
+
+    const remainingSessions = Math.max(
+      0,
+      subject.totalEstimatedSessions - subject.totalCompletedSessions,
+    )
+
+    // Estimate available slots before exam date
+    // (daysRemaining * defaultDailyCapacity)
+    const availableCapacityBeforeExam = daysRemaining * defaultDailyCapacity
+    const isOverloaded = remainingSessions > availableCapacityBeforeExam
+    const shortfallSessions = isOverloaded ? remainingSessions - availableCapacityBeforeExam : 0
+
+    readinessList.push({
+      subjectId: subject.subjectId,
+      subjectName: subject.subjectName,
+      color: subject.color,
+      examDate: subject.examDate,
+      daysRemaining,
+      percentComplete: subject.percentComplete,
+      totalRequiredSessions: subject.totalEstimatedSessions,
+      completedSessions: subject.totalCompletedSessions,
+      remainingSessions,
+      unitsCompleted,
+      unitsInProgress,
+      unitsNotStarted,
+      units: unitSummaries,
+      isOverloaded,
+      availableCapacityBeforeExam,
+      shortfallSessions,
+    })
+  }
+
+  // Sort by daysRemaining ascending (earliest exams first)
+  return readinessList.sort((a, b) => a.daysRemaining - b.daysRemaining)
+}

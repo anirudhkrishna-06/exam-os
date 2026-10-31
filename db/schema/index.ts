@@ -1,0 +1,15 @@
+// Re-export all schema with relations
+export { users } from './users'
+export { authSessions } from './sessions'
+export { userPreferences } from './user-preferences'
+export { dailySessionTemplates } from './daily-templates'
+export { examSeasons, seasonStatusEnum } from './exam-seasons'
+export { subjects } from './subjects'
+export { units, unitInitialStatusEnum } from './units'
+export { unitActivities, activityTypeEnum, activityStatusEnum } from './activities'
+// Phase 2
+export { dailyCapacity } from './daily-capacity'
+export { dailySlotOverrides } from './daily-slot-overrides'
+export { planVersions, generationTypeEnum } from './plan-versions'
+export { studySessions, sessionStatusEnum } from './study-sessions'
+export { sessionHistory, sessionActionEnum } from './session-history'

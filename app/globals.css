@@ -80,3 +80,74 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* The note surface owns its DOM so the browser can keep the caret stable. */
+.session-editor {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+  overflow-wrap: anywhere;
+}
+
+.session-editor:empty::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.session-editor h2 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.session-editor h3 {
+  margin: 1.25rem 0 0.4rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.session-editor p {
+  margin: 0.35rem 0;
+}
+
+.session-editor ul,
+.session-editor ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.session-editor ul {
+  list-style: disc;
+}
+
+.session-editor ol {
+  list-style: decimal;
+}
+
+.session-editor blockquote {
+  margin: 1rem 0;
+  border-left: 3px solid hsl(var(--primary) / 0.35);
+  padding-left: 1rem;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+.session-editor pre {
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-radius: 0.6rem;
+  background: hsl(var(--muted));
+  padding: 0.85rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.session-editor a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

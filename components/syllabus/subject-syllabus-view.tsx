@@ -216,28 +216,7 @@ export function SubjectSyllabusView({ initialSubject }: { initialSubject: Subjec
   return (
     <div className="space-y-6">
       {/* Subject Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl border bg-card shadow-sm">
-        <div className="flex items-center gap-3">
-          {subject.color && (
-            <div className="h-5 w-5 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: subject.color }} />
-          )}
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{subject.name}</h1>
-            <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              <span>Exam Date: {formatDate(subject.examDate)}</span>
-              <Badge variant={daysLeft <= 7 ? 'destructive' : daysLeft <= 30 ? 'warning' : 'secondary'} className="ml-1">
-                {daysLeft === 0 ? 'Today!' : `${daysLeft} days left`}
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 px-3 py-1.5 rounded-lg border">
-          <Layers className="h-4 w-4 text-primary" />
-          <span>{subject.units.length} Units · {subject.units.reduce((total, unit) => total + unit.unitActivities.length, 0)} Activities Total</span>
-        </div>
-      </div>
+      
 
       {feedback && (
         <Alert variant={feedback.type === 'error' ? 'destructive' : 'default'} className={feedback.type === 'success' ? 'border-green-500/50 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-300' : ''}>

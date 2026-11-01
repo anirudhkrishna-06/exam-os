@@ -9,5 +9,5 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
   const user = await requireAuth(); const { sessionId } = await params
   const workspace = await getSessionWorkspace(user.id, sessionId)
   if (!workspace) notFound()
-  return <SessionWorkspace initial={workspace as any} />
+  return <SessionWorkspace initial={workspace} />
 }

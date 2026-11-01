@@ -29,7 +29,7 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     // The pathname dependency makes the animation reliable even when Cache
     // Components reuses a template instead of remounting it.
     const page = el.firstElementChild instanceof HTMLElement ? el.firstElementChild : el
-    const items = page === el ? el.children : page.children
+    const items = Array.from(page === el ? el.children : page.children)
 
     const ctx = gsap.context(() => {
       const tl = gsap.timeline()
@@ -44,18 +44,20 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
           clearProps: 'all',
         },
       )
-      tl.from(
-        items,
-        {
-          autoAlpha: 0,
-          y: 16,
-          duration: 0.5,
-          ease: 'power3.out',
-          stagger: 0.06,
-          clearProps: 'all',
-        },
-        0.06,
-      )
+      if (items.length > 0) {
+        tl.from(
+          items,
+          {
+            autoAlpha: 0,
+            y: 16,
+            duration: 0.5,
+            ease: 'power3.out',
+            stagger: 0.06,
+            clearProps: 'all',
+          },
+          0.06,
+        )
+      }
     }, ref)
 
     return () => ctx.revert()

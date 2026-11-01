@@ -33,6 +33,7 @@ export default async function PlannerCalendarPage({
 
   // Extract exam dates
   const examDates = seasonSubjects.map((s) => ({
+    subjectId: s.id,
     subjectName: s.name,
     examDate: s.examDate,
     color: s.color || '#3b82f6',
@@ -53,7 +54,11 @@ export default async function PlannerCalendarPage({
       status: s.status,
       activity: s.activity
         ? {
+            activityType: s.activity.activityType,
             unit: {
+              id: s.activity.unit.id,
+              name: s.activity.unit.name,
+              unitNumber: s.activity.unit.unitNumber,
               subject: {
                 id: s.activity.unit.subject.id,
                 name: s.activity.unit.subject.name,

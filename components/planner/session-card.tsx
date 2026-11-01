@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SessionStatus } from './session-status'
-import { CheckCircle2, Clock, SkipForward, Edit2, BookOpen, AlertCircle } from 'lucide-react'
+import { CheckCircle2, Clock, SkipForward, Edit2, BookOpen, AlertCircle, ArrowUpRight } from 'lucide-react'
 
 export interface SessionCardData {
   id: string
@@ -37,6 +37,7 @@ interface SessionCardProps {
   session: SessionCardData
   onStatusChange?: (sessionId: string, newStatus: SessionCardData['status']) => Promise<void>
   onEdit?: (session: SessionCardData) => void
+  onOpen?: (session: SessionCardData) => void
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -47,7 +48,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   revision: 'Final Revision',
 }
 
-export function SessionCard({ session, onStatusChange, onEdit }: SessionCardProps) {
+export function SessionCard({ session, onStatusChange, onEdit, onOpen }: SessionCardProps) {
   const [loading, setLoading] = useState(false)
   const subject = session.activity?.unit.subject
   const unit = session.activity?.unit
@@ -107,6 +108,11 @@ export function SessionCard({ session, onStatusChange, onEdit }: SessionCardProp
               <SessionStatus status={session.status} />
               
               <div className="flex items-center gap-1 mt-1">
+                {onOpen && (
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" onClick={() => onOpen(session)} title="Open workspace">
+                    <ArrowUpRight className="mr-1 h-3.5 w-3.5" />Open
+                  </Button>
+                )}
                 {session.status !== 'completed' && (
                   <Button
                     size="sm"

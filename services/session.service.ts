@@ -7,6 +7,7 @@ import { db } from '@/db'
 import { studySessions } from '@/db/schema/study-sessions'
 import { sessionHistory } from '@/db/schema/session-history'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
+import { getDailyCapacity } from './capacity.service'
 
 // ---- Queries ----
 
@@ -152,6 +153,21 @@ export async function moveSession(
   if (session.status === 'completed') throw new Error('Cannot move a completed session')
 
   const previousDate = session.scheduledDate
+  const targetSessions = await db.query.studySessions.findMany({
+    where: and(
+      eq(studySessions.userId, userId),
+      eq(studySessions.seasonId, session.seasonId),
+      eq(studySessions.scheduledDate, newDate),
+    ),
+  })
+  if (targetSessions.some((item) => item.id !== sessionId && item.slotName === newSlotName)) {
+    throw new Error('That time slot already has a session on the selected date')
+  }
+  const capacity = await getDailyCapacity(userId, session.seasonId, newDate)
+  if (capacity?.isRestDay) throw new Error('This date is marked as a rest day')
+  if (capacity && targetSessions.filter((item) => item.id !== sessionId && item.status !== 'skipped').length >= capacity.sessionCount) {
+    throw new Error('Daily capacity is already full on the selected date')
+  }
 
   const [updated] = await db
     .update(studySessions)

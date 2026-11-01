@@ -19,6 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { GlobalSearch } from '@/components/knowledge/global-search'
 
 const NAV_ITEMS = [
   { label: 'Overview', href: '/overview', icon: LayoutDashboard },
@@ -134,6 +135,7 @@ export function Sidebar({ userName }: SidebarProps) {
         </div>
 
         {/* Navigation */}
+        <div className="px-3 pt-3"><GlobalSearch /></div>
         <NavLinks />
 
         {/* User / logout */}

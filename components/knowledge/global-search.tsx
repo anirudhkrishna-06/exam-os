@@ -1,0 +1,16 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Search, FileText, Link2, Tag } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+
+type Result = { id: string; type: string; title: string; preview: string; meta: string; href: string }
+export function GlobalSearch() {
+  const router = useRouter(); const [open, setOpen] = useState(false); const [query, setQuery] = useState(''); const [results, setResults] = useState<Result[]>([])
+  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setOpen(true) } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler) }, [])
+  useEffect(() => { if (!open || !query.trim()) { setResults([]); return }; const timer = setTimeout(async () => { const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`); if (response.ok) setResults((await response.json()).results) }, 180); return () => clearTimeout(timer) }, [open, query])
+  function icon(type: string) { return type === 'Note' ? <FileText className="h-4 w-4" /> : type === 'Resource' ? <Link2 className="h-4 w-4" /> : <Tag className="h-4 w-4" /> }
+  return <><button type="button" onClick={() => setOpen(true)} className="flex h-9 w-full items-center gap-2 rounded-lg border bg-background px-3 text-sm text-muted-foreground hover:bg-muted"><Search className="h-4 w-4" />Search knowledge<span className="ml-auto rounded border px-1.5 py-0.5 text-[10px]">⌘ K</span></button><Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery('') }}><DialogContent className="top-[18%] max-w-2xl translate-y-0 overflow-hidden p-0"><DialogTitle className="sr-only">Search ExamOS knowledge</DialogTitle><DialogDescription className="sr-only">Search notes, links, and keywords</DialogDescription><div className="flex items-center gap-3 border-b px-4"><Search className="h-5 w-5 text-muted-foreground" /><Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search notes, links, keywords…" className="h-14 border-0 shadow-none focus-visible:ring-0" /></div><div className="max-h-[min(28rem,60vh)] overflow-y-auto p-2">{query && results.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No knowledge found</p> : results.map((result) => <button key={result.id} type="button" onClick={() => { setOpen(false); router.push(result.href) }} className="flex w-full items-start gap-3 rounded-lg p-3 text-left hover:bg-muted"><span className="mt-0.5 text-primary">{icon(result.type)}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{result.title}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{result.preview}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{result.meta}</span></span><span className="text-[10px] text-muted-foreground">{result.type}</span></button>)}</div></DialogContent></Dialog></>
+}

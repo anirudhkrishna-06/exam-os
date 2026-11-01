@@ -12,6 +12,7 @@ import { dailySlotOverrides } from './schema/daily-slot-overrides'
 import { planVersions } from './schema/plan-versions'
 import { studySessions } from './schema/study-sessions'
 import { sessionHistory } from './schema/session-history'
+import { sessionNotes, knowledgeLinks, sessionKeywords } from './schema/knowledge'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
@@ -149,6 +150,24 @@ export const studySessionsRelations = relations(studySessions, ({ one, many }) =
     references: [planVersions.id],
   }),
   history: many(sessionHistory),
+  note: one(sessionNotes),
+  links: many(knowledgeLinks),
+  keywords: many(sessionKeywords),
+}))
+
+export const sessionNotesRelations = relations(sessionNotes, ({ one }) => ({
+  session: one(studySessions, { fields: [sessionNotes.sessionId], references: [studySessions.id] }),
+  user: one(users, { fields: [sessionNotes.userId], references: [users.id] }),
+}))
+
+export const knowledgeLinksRelations = relations(knowledgeLinks, ({ one }) => ({
+  session: one(studySessions, { fields: [knowledgeLinks.sessionId], references: [studySessions.id] }),
+  user: one(users, { fields: [knowledgeLinks.userId], references: [users.id] }),
+}))
+
+export const sessionKeywordsRelations = relations(sessionKeywords, ({ one }) => ({
+  session: one(studySessions, { fields: [sessionKeywords.sessionId], references: [studySessions.id] }),
+  user: one(users, { fields: [sessionKeywords.userId], references: [users.id] }),
 }))
 
 export const sessionHistoryRelations = relations(sessionHistory, ({ one }) => ({
@@ -176,6 +195,9 @@ import * as dailySlotOverridesSchema from './schema/daily-slot-overrides'
 import * as planVersionsSchema from './schema/plan-versions'
 import * as studySessionsSchema from './schema/study-sessions'
 import * as sessionHistorySchema from './schema/session-history'
+import * as knowledgeSchema from './schema/knowledge'
+import * as revisionDismissalsSchema from './schema/revision-dismissals'
+import * as unitKnowledgeSchema from './schema/unit-knowledge'
 
 const schema = {
   ...usersSchema,
@@ -191,6 +213,9 @@ const schema = {
   ...planVersionsSchema,
   ...studySessionsSchema,
   ...sessionHistorySchema,
+  ...knowledgeSchema,
+  ...revisionDismissalsSchema,
+  ...unitKnowledgeSchema,
   // relations
   usersRelations,
   authSessionsRelations,
@@ -205,6 +230,9 @@ const schema = {
   planVersionsRelations,
   studySessionsRelations,
   sessionHistoryRelations,
+  sessionNotesRelations,
+  knowledgeLinksRelations,
+  sessionKeywordsRelations,
 }
 
 const databaseUrl = process.env.DATABASE_URL

@@ -22,6 +22,27 @@
       "when": 1793475845542,
       "tag": "0002_lean_skullbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793504336690,
+      "tag": "0003_dear_peter_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793504695262,
+      "tag": "0004_massive_william_stryker",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793504972213,
+      "tag": "0005_worthless_stingray",
+      "breakpoints": true
     }
   ]
 }

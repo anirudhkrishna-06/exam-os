@@ -6,6 +6,7 @@ import { getSeasonsForUser } from '@/services/season.service'
 import { getSubjectsForSeason } from '@/services/subject.service'
 import { DailyView } from '@/components/planner/daily-view'
 import type { SessionCardData } from '@/components/planner/session-card'
+import { getRevisionSuggestions } from '@/services/revision.service'
 
 export const instant = false
 
@@ -28,6 +29,9 @@ export default async function DailyPlannerPage({
   const activeSeason = seasons.find((s) => s.status === 'active') || seasons[0]
   const seasonSubjects = activeSeason
     ? await getSubjectsForSeason(user.id, activeSeason.id)
+    : []
+  const revisionSuggestions = activeSeason
+    ? await getRevisionSuggestions(user.id, activeSeason.id, date)
     : []
 
   // Sessions for this date
@@ -108,6 +112,7 @@ export default async function DailyPlannerPage({
             unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status })),
           })),
         }))}
+        revisionSuggestions={revisionSuggestions}
       />
     </div>
   )

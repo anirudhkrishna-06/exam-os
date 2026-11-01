@@ -26,7 +26,6 @@ export function PlanGenerator({ seasonId, subjects, slots, defaultDate }: { seas
   const [date, setDate] = useState(defaultDate)
   const enabledSlots = slots.filter((s) => s.isEnabled)
   const [slotName, setSlotName] = useState(enabledSlots[0]?.name ?? '')
-  const [duration, setDuration] = useState(60)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const enabledActivities = unit?.unitActivities.filter((a) => a.enabled && a.status !== 'completed') ?? []
@@ -44,7 +43,7 @@ export function PlanGenerator({ seasonId, subjects, slots, defaultDate }: { seas
   async function addSession() {
     if (!activityId || !selectedSlot) return
     setSaving(true); setMessage(null)
-    const res = await fetch('/api/seasons/' + seasonId + '/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activityId, scheduledDate: date, slotName, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime, estimatedDurationMinutes: duration }) })
+    const res = await fetch('/api/seasons/' + seasonId + '/plan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activityId, scheduledDate: date, slotName, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime }) })
     const data = await res.json(); setSaving(false)
     setMessage(res.ok ? 'Session added. Add another one or open your planner.' : (data.error ?? 'Could not add session'))
   }
@@ -60,7 +59,6 @@ export function PlanGenerator({ seasonId, subjects, slots, defaultDate }: { seas
           <div className="space-y-2"><Label>What will you do?</Label><Select value={activityId} onChange={(e) => setActivityId(e.target.value)}>{enabledActivities.map((a) => <option key={a.id} value={a.id}>{labels[a.activityType] ?? a.activityType}</option>)}</Select></div>
           <div className="space-y-2"><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="space-y-2"><Label>Time slot</Label><Select value={slotName} onChange={(e) => setSlotName(e.target.value)}>{enabledSlots.map((s) => <option key={s.name} value={s.name}>{s.name} · {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}</option>)}</Select></div>
-          <div className="space-y-2"><Label>Planned minutes</Label><Input type="number" min={15} max={240} value={duration} onChange={(e) => setDuration(Number(e.target.value))} /></div>
         </div>
         {unit && <p className="rounded-lg bg-muted/40 px-3 py-2 text-xs text-muted-foreground">{unit.name} is marked <span className="font-semibold text-foreground">{unit.difficulty}</span>. Use that as a cue for effort; the app will not force extra sessions.</p>}
         <Button className="w-full sm:w-auto" disabled={saving || !activityId || !selectedSlot || !date} onClick={addSession}><CalendarPlus className="mr-2 h-4 w-4" />{saving ? 'Adding…' : 'Add session to planner'}</Button>

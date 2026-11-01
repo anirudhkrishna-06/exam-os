@@ -20,6 +20,7 @@ import type { PlannerInput, PlannerSubject, ScheduledSession } from '@/modules/p
 import {
   getCapacityOverridesForSeason,
   getSlotOverridesForSeason,
+  getDailyCapacity,
 } from './capacity.service'
 
 // ---- Data assembly ----
@@ -401,7 +402,7 @@ export async function createManualSession(
     slotName: string
     startTime: string
     endTime: string
-    estimatedDurationMinutes: number
+    estimatedDurationMinutes?: number
   },
 ) {
   const subjectRows = await db.query.subjects.findMany({
@@ -432,8 +433,17 @@ export async function createManualSession(
   if (existing.some((session) => session.slotName === data.slotName)) {
     throw new Error('That time slot already has a session on this date')
   }
+  const capacity = await getDailyCapacity(userId, data.seasonId, data.scheduledDate)
+  if (capacity?.isRestDay) throw new Error('This date is marked as a rest day')
+  if (capacity && existing.filter((session) => session.status !== 'skipped').length >= capacity.sessionCount) {
+    throw new Error('Daily capacity is already full on this date')
+  }
+  const [startHour, startMinute] = data.startTime.split(':').map(Number)
+  const [endHour, endMinute] = data.endTime.split(':').map(Number)
+  const slotDuration = Math.max(1, (endHour * 60 + endMinute) - (startHour * 60 + startMinute))
   const [session] = await db.insert(studySessions).values({
     ...data,
+    estimatedDurationMinutes: data.estimatedDurationMinutes ?? slotDuration,
     userId,
     planVersionId: version.id,
     position: existing.length,

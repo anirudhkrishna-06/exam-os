@@ -8,6 +8,8 @@ import { SubjectSyllabusView } from '@/components/syllabus/subject-syllabus-view
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { daysUntil, formatDate } from '@/lib/date/utils'
+import { getSubjectKnowledge } from '@/services/knowledge.service'
+import { SubjectKnowledgeHub } from '@/components/knowledge/subject-knowledge-hub'
 
 export const instant = false
 
@@ -24,9 +26,10 @@ export default async function SubjectPage({
   if (!user) redirect('/login')
 
   const { subjectId } = await params
-  const [subject, progress] = await Promise.all([
+  const [subject, progress, knowledge] = await Promise.all([
     getSubjectById(user.id, subjectId),
     getSubjectProgress(user.id, subjectId),
+    getSubjectKnowledge(user.id, subjectId),
   ])
 
   if (!subject) notFound()
@@ -129,6 +132,7 @@ export default async function SubjectPage({
 
       {/* Main Syllabus Configuration */}
       <SubjectSyllabusView initialSubject={subject as any} />
+      {knowledge && <SubjectKnowledgeHub subjectId={subject.id} units={knowledge.units as any} />}
     </div>
   )
 }

@@ -12,8 +12,8 @@ type Subject = { id: string; name: string; examDate: string; color: string | nul
 type Slot = { name: string; startTime: string; endTime: string; isEnabled?: boolean }
 const activityLabels: Record<string, string> = { theory_1: 'Learn', theory_2: 'Continue', numericals: 'Practice', previous_papers: 'Past papers', revision: 'Revise' }
 
-export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subjects, slots, onAdded }: {
-  open: boolean; onOpenChange: (open: boolean) => void; seasonId: string; date: string; subjects: Subject[]; slots: Slot[]; onAdded?: () => void
+export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subjects, slots, onAdded, prefill }: {
+  open: boolean; onOpenChange: (open: boolean) => void; seasonId: string; date: string; subjects: Subject[]; slots: Slot[]; onAdded?: () => void; prefill?: { subjectId?: string; unitId?: string; activityId?: string }
 }) {
   const availableSlots = slots.filter((slot) => slot.isEnabled !== false)
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '')
@@ -23,17 +23,16 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
   const activities = unit?.unitActivities.filter((item) => item.enabled && item.status !== 'completed') ?? []
   const [activityId, setActivityId] = useState(activities[0]?.id ?? '')
   const [slotName, setSlotName] = useState(availableSlots[0]?.name ?? '')
-  const [duration, setDuration] = useState(60)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectedSlot = useMemo(() => availableSlots.find((slot) => slot.name === slotName), [availableSlots, slotName])
 
   useEffect(() => {
     if (!open) return
-    const next = subjects[0]
-    const nextUnit = next?.units[0]
+    const next = subjects.find((subject) => subject.id === prefill?.subjectId) ?? subjects[0]
+    const nextUnit = next?.units.find((unit) => unit.id === prefill?.unitId) ?? next?.units[0]
     setSubjectId(next?.id ?? ''); setUnitId(nextUnit?.id ?? '')
-    setActivityId(nextUnit?.unitActivities.find((a) => a.enabled && a.status !== 'completed')?.id ?? '')
+    setActivityId(nextUnit?.unitActivities.some((a) => a.id === prefill?.activityId && a.enabled) ? prefill?.activityId ?? '' : nextUnit?.unitActivities.find((a) => a.enabled && a.status !== 'completed')?.id ?? '')
     setSlotName(availableSlots[0]?.name ?? ''); setError(null)
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,7 +51,7 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
     setSaving(true); setError(null)
     const response = await fetch(`/api/seasons/${seasonId}/plan`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activityId, scheduledDate: date, slotName, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime, estimatedDurationMinutes: duration }),
+      body: JSON.stringify({ activityId, scheduledDate: date, slotName, startTime: selectedSlot.startTime, endTime: selectedSlot.endTime }),
     })
     const data = await response.json(); setSaving(false)
     if (!response.ok) { setError(data.error ?? 'Could not add this session'); return }
@@ -81,7 +80,7 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
             <SummaryRow label="Time" value={selectedSlot ? `${selectedSlot.name} · ${selectedSlot.startTime.slice(0, 5)}` : 'Choose a slot'} />
           </div>
           <div className="mt-auto border-t pt-4">
-            <div className="mb-4 flex items-center justify-between gap-3"><span className="text-sm text-muted-foreground">Duration</span><div className="flex items-center gap-2"><Button type="button" size="icon" variant="outline" className="rounded-full" onClick={() => setDuration(Math.max(15, duration - 15))}>−</Button><Input className="h-9 w-16 text-center" type="number" min={15} max={240} value={duration} onChange={(e) => setDuration(Number(e.target.value))} /><span className="text-sm text-muted-foreground">min</span><Button type="button" size="icon" variant="outline" className="rounded-full" onClick={() => setDuration(Math.min(240, duration + 15))}>+</Button></div></div>
+            <p className="mb-4 rounded-lg bg-background px-3 py-2 text-xs text-muted-foreground">This session uses the full selected time slot.</p>
             {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
             <Button className="w-full" disabled={saving || !activityId || !selectedSlot} onClick={save}>{saving ? 'Adding…' : <><Check className="h-4 w-4" />Add session</>}</Button>
           </div>

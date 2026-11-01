@@ -14,9 +14,6 @@ export async function POST(
     if (!body.activityId || !body.scheduledDate || !body.slotName || !body.startTime || !body.endTime) {
       return NextResponse.json({ error: 'Activity, date, and time slot are required' }, { status: 400 })
     }
-    if (!Number.isFinite(Number(body.estimatedDurationMinutes)) || Number(body.estimatedDurationMinutes) < 15) {
-      return NextResponse.json({ error: 'Planned duration must be at least 15 minutes' }, { status: 400 })
-    }
     const result = await createManualSession(user.id, {
       seasonId,
       activityId: body.activityId,
@@ -24,7 +21,7 @@ export async function POST(
       slotName: body.slotName,
       startTime: body.startTime,
       endTime: body.endTime,
-      estimatedDurationMinutes: Number(body.estimatedDurationMinutes),
+      estimatedDurationMinutes: body.estimatedDurationMinutes ? Number(body.estimatedDurationMinutes) : undefined,
     })
     return NextResponse.json({ session: result }, { status: 201 })
   } catch (err: any) {

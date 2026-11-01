@@ -15,7 +15,11 @@ interface CalendarSession {
   slotName: string
   status: string
   activity?: {
+    activityType: string
     unit: {
+      id: string
+      name: string
+      unitNumber: number
       subject: {
         id: string
         name: string
@@ -30,7 +34,7 @@ interface CalendarViewProps {
   initialYear: number
   initialMonth: number
   sessionsByDate: Record<string, CalendarSession[]>
-  examDates?: Array<{ subjectName: string; examDate: string; color: string }>
+  examDates?: Array<{ subjectId: string; subjectName: string; examDate: string; color: string }>
   restDates?: string[]
   seasonId: string
   subjects: Array<{ id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }>
@@ -73,7 +77,7 @@ export function CalendarView({
   const todayStr = todayDateString()
 
   // Map exam dates
-  const examMap = new Map<string, Array<{ subjectName: string; color: string }>>()
+  const examMap = new Map<string, Array<{ subjectId: string; subjectName: string; color: string }>>()
   for (const e of examDates) {
     const list = examMap.get(e.examDate) ?? []
     list.push(e)
@@ -109,9 +113,9 @@ export function CalendarView({
             variant="outline"
             size="sm"
             onClick={() => {
-              const now = new Date()
-              setYear(now.getFullYear())
-              setMonth(now.getMonth() + 1)
+              const [currentYear, currentMonth] = todayStr.split('-').map(Number)
+              setYear(currentYear)
+              setMonth(currentMonth)
               router.push('/planner/calendar')
             }}
           >
@@ -194,19 +198,27 @@ export function CalendarView({
                 {/* Badges / indicators */}
                 <div className="space-y-1 my-1">
                   {exams.map((e, idx) => (
-                    <div
+                    <button
                       key={idx}
+                      type="button"
                       className="text-[10px] font-semibold px-1.5 py-0.5 rounded text-white truncate"
                       style={{ backgroundColor: e.color || '#ef4444' }}
-                      title={`Exam: ${e.subjectName}`}
+                      title={`Open ${e.subjectName}`}
+                      onClick={(event) => { event.stopPropagation(); router.push(`/subjects/${e.subjectId}`) }}
                     >
                       EXAM: {e.subjectName}
-                    </div>
+                    </button>
                   ))}
 
                   {daySessions.length > 0 && (
-                    <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-between">
-                      <span>{daySessions.length} session{daySessions.length > 1 ? 's' : ''}</span>
+                    <div className="space-y-1 text-[11px] font-medium text-muted-foreground">
+                      {daySessions.slice(0, 2).map((session) => (
+                        <button key={session.id} type="button" onClick={(event) => { event.stopPropagation(); router.push(`/sessions/${session.id}`) }} className="flex w-full items-center gap-1.5 truncate rounded px-1 py-0.5 text-left hover:bg-primary/10 hover:text-primary">
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${session.status === 'completed' ? 'bg-emerald-500' : session.status === 'overdue' ? 'bg-red-500' : session.status === 'skipped' ? 'bg-muted-foreground' : 'bg-primary'}`} />
+                          <span className="truncate">{session.activity?.unit.name || session.slotName}</span>
+                        </button>
+                      ))}
+                      {daySessions.length > 2 && <span className="block px-1">+{daySessions.length - 2} more</span>}
                       {completedCount > 0 && (
                         <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
                           ✓ {completedCount}

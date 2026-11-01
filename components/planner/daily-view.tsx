@@ -12,6 +12,7 @@ import { QuickSessionDialog } from './quick-session-dialog'
 import { todayDateString } from '@/lib/date/utils'
 
 type QuickSubject = { id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }
+type RevisionSuggestion = { id: string; subjectId: string; subjectName: string; unitId: string; unitName: string; activityId: string; sourceActivity: string; suggestedDate: string; reason: string }
 
 interface DailyViewProps {
   date: string
@@ -35,6 +36,7 @@ interface DailyViewProps {
     color: string
   }>
   subjects: QuickSubject[]
+  revisionSuggestions: RevisionSuggestion[]
 }
 
 export function DailyView({
@@ -46,11 +48,13 @@ export function DailyView({
   defaultSessionsPerDay,
   upcomingExams,
   subjects,
+  revisionSuggestions,
 }: DailyViewProps) {
   const router = useRouter()
   const [selectedSession, setSelectedSession] = useState<SessionCardData | null>(null)
   const [editorOpen, setEditorOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickPrefill, setQuickPrefill] = useState<{ subjectId?: string; unitId?: string; activityId?: string }>()
 
   // Navigation helpers
   const navigateDay = (offset: number) => {
@@ -71,6 +75,7 @@ export function DailyView({
     ? Math.max(0, Math.round((Date.parse(`${focusExam.examDate}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000))
     : null
   const focusIsNear = daysToFocusExam !== null && daysToFocusExam <= 14
+  const dueToday = revisionSuggestions.filter((suggestion) => suggestion.suggestedDate === date)
 
   // Map slots to sessions
   // Map templates sorted by position
@@ -218,6 +223,7 @@ export function DailyView({
                           setSelectedSession(s)
                           setEditorOpen(true)
                         }}
+                        onOpen={(s) => router.push(`/sessions/${s.id}`)}
                       />
                     </div>
                   )
@@ -289,6 +295,12 @@ export function DailyView({
             </CardContent>
           </Card>
 
+          {dueToday.length > 0 && (
+            <Card className="border-primary/20 bg-primary/[0.03]">
+              <CardContent className="p-4"><p className="text-xs font-semibold uppercase tracking-wider text-primary">Ready to revisit</p><div className="mt-3 space-y-2">{dueToday.slice(0, 3).map((suggestion) => <div key={suggestion.id} className="flex items-center gap-3 rounded-xl border bg-background p-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{suggestion.subjectName} · {suggestion.unitName}</p><p className="text-xs text-muted-foreground">{suggestion.reason}</p></div><Button size="sm" variant="ghost" onClick={async () => { await fetch('/api/revisions/dismiss', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activityId: suggestion.activityId, suggestedDate: suggestion.suggestedDate }) }); router.refresh() }}>Dismiss</Button><Button size="sm" variant="outline" onClick={() => { setQuickPrefill({ subjectId: suggestion.subjectId, unitId: suggestion.unitId, activityId: suggestion.activityId }); setQuickAddOpen(true) }}>Add</Button></div>)}</div></CardContent>
+            </Card>
+          )}
+
           {seasonId && (
             <DayCapacityEditor
               seasonId={seasonId}
@@ -310,7 +322,7 @@ export function DailyView({
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
       />
-      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} seasonId={seasonId} date={date} subjects={subjects} slots={templates} onAdded={() => router.refresh()} />}
+      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} seasonId={seasonId} date={date} subjects={subjects} slots={templates} prefill={quickPrefill} onAdded={() => router.refresh()} />}
     </div>
   )
 }

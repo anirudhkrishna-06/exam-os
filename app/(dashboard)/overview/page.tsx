@@ -2,19 +2,19 @@ import { getCurrentUser } from '@/lib/auth/session'
 import { getSeasonsForUser } from '@/services/season.service'
 import { getSeasonProgress } from '@/services/progress.service'
 import { getSessionsForDate } from '@/services/session.service'
-import { getWorkloadSummary } from '@/services/analytics.service'
 import { getExamReadiness } from '@/services/readiness.service'
+import { getWorkloadSummary } from '@/services/analytics.service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { BookOpen, Plus } from 'lucide-react'
 import { WelcomeHeader } from '@/components/dashboard/welcome-header'
-import { OverviewStats } from '@/components/dashboard/overview-stats'
 import { TodaySessions, TodaySessionItem } from '@/components/dashboard/today-sessions'
-import { UpcomingExams, UpcomingExamItem } from '@/components/dashboard/upcoming-exams'
 import { SubjectProgressSection } from '@/components/dashboard/subject-progress'
 import { WorkloadOverview } from '@/components/dashboard/workload-overview'
+import { CurrentTaskOverview, OverviewTask } from '@/components/dashboard/current-task-overview'
+import { todayDateString } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -72,7 +72,7 @@ export default async function OverviewPage() {
   }
 
   const today = new Date()
-  const todayIso = today.toISOString().split('T')[0]
+  const todayIso = todayDateString()
   const todayFormatted = today.toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -105,18 +105,9 @@ export default async function OverviewPage() {
     confidenceRating: s.confidenceRating,
   }))
 
-  // Map upcoming exams with readiness
-  const upcomingExams: UpcomingExamItem[] = readinessList.map((r) => ({
-    subjectId: r.subjectId,
-    subjectName: r.subjectName,
-    color: r.color,
-    examDate: r.examDate,
-    daysRemaining: r.daysRemaining,
-    percentComplete: r.percentComplete,
-    isOverloaded: r.isOverloaded,
-  }))
-
-  const nextExamDays = upcomingExams.length > 0 ? upcomingExams[0].daysRemaining : null
+  const overviewTasks: OverviewTask[] = todaySessions.map((session) => ({ ...session, href: `/sessions/${session.id}` }))
+  const nextReadiness = readinessList[0]
+  const nextExam = nextReadiness ? { subjectId: nextReadiness.subjectId, subjectName: nextReadiness.subjectName, color: nextReadiness.color, examDate: nextReadiness.examDate, daysRemaining: nextReadiness.daysRemaining, percentComplete: nextReadiness.percentComplete } : null
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 p-4 sm:p-6 lg:p-8">
@@ -128,19 +119,9 @@ export default async function OverviewPage() {
         todayIso={todayIso}
       />
 
-      {/* Primary Statistics */}
-      <OverviewStats
-        overallPercent={seasonProgress?.overallPercent ?? 0}
-        sessionsCompleted={seasonProgress?.totalCompleted ?? 0}
-        sessionsPending={seasonProgress?.totalPending ?? 0}
-        daysUntilNextExam={nextExamDays}
-      />
+      <CurrentTaskOverview tasks={overviewTasks} nextExam={nextExam} />
 
-      {/* Grid: Today's Schedule & Upcoming Exams */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <TodaySessions sessions={todaySessions} todayIso={todayIso} />
-        <UpcomingExams exams={upcomingExams} />
-      </div>
+      <TodaySessions sessions={todaySessions} todayIso={todayIso} />
 
       {/* Subject Syllabus Preparation */}
       <SubjectProgressSection subjects={seasonProgress?.subjects ?? []} />

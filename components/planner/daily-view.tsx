@@ -93,9 +93,8 @@ export function DailyView({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus, confidenceRating }),
     })
-    if (res.ok) {
-      router.refresh()
-    }
+    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? 'Could not save the session')
+    router.refresh()
   }
 
   const handleSaveSession = async (

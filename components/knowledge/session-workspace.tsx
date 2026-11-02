@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import katex from 'katex'
 import { jsPDF } from 'jspdf'
+import html2canvas from 'html2canvas'
 
 gsap.registerPlugin(Flip)
 
@@ -919,9 +920,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
       const exportRoot = document.createElement('article')
       exportRoot.dataset.examOsPdfExport = 'true'
-      // html2canvas, used internally by jsPDF.html, needs the source node to be
-      // connected to the document. Keep it off-screen and remove it in finally.
-      exportRoot.style.cssText = 'position:fixed;left:-100000px;top:0;display:block;width:794px;min-height:1123px;padding:0 0 40px;overflow:visible;color:#171717;background:#fff;color-scheme:light;font-family:Arial,sans-serif;font-size:11pt;line-height:1.55;'
+      exportRoot.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483647;display:block;width:794px;min-height:1123px;padding:0 0 40px;overflow:visible;opacity:0;pointer-events:none;color:#171717;background:#fff;color-scheme:light;font-family:Arial,sans-serif;font-size:11pt;line-height:1.55;'
       const resourceList = workspace.links.length ? `<h2 style="font-size:14pt;margin-top:20px">Resources</h2><ul>${workspace.links.map((link) => `<li><a href="${escapeHtml(link.url)}">${escapeHtml(link.nickname)}</a> <span style="color:#666">(${escapeHtml(link.category)})</span></li>`).join('')}</ul>` : ''
       const keywordList = workspace.keywords.length ? `<p style="margin-top:16px;color:#555"><strong>Keywords:</strong> ${workspace.keywords.map((item) => escapeHtml(item.keyword)).join(', ')}</p>` : ''
       exportRoot.innerHTML = `<style>
@@ -945,10 +944,31 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       const images = Array.from(exportRoot.querySelectorAll('img'))
       await Promise.all(images.map(async (image) => { if (image.complete) return; await new Promise<void>((resolve) => { image.addEventListener('load', () => resolve(), { once: true }); image.addEventListener('error', () => resolve(), { once: true }) }) }))
       const filename = [unit?.subject.name, unit?.name, title.trim() || 'Workspace', new Date().toISOString().slice(0, 10)].filter(Boolean).join('-').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.pdf'
-      await new Promise<void>((resolve, reject) => {
-        const timeout = window.setTimeout(() => reject(new Error('PDF generation timed out.')), 30000)
-        pdf.html(exportRoot, { x: 18, y: 18, width: 174, margin: [18, 18, 18, 18], autoPaging: 'text', windowWidth: 794, html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 794 }, callback: (document) => { window.clearTimeout(timeout); document.save(filename); resolve() } })
-      })
+      const canvas = await html2canvas(exportRoot, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false, width: 794, windowWidth: 794, onclone: (clonedDocument) => {
+        const clonedRoot = clonedDocument.querySelector('[data-exam-os-pdf-export]') as HTMLElement | null
+        if (clonedRoot) { clonedRoot.style.opacity = '1'; clonedRoot.style.left = '0'; clonedRoot.style.top = '0' }
+      } })
+      if (canvas.width === 0 || canvas.height === 0) throw new Error('The PDF canvas was empty.')
+      pdf.setProperties({ title: title.trim() || 'ExamOS workspace', subject: `${unit?.subject.name ?? 'Subject'} workspace` })
+      const margin = 18
+      const pageWidth = 210
+      const pageHeight = 297
+      const contentWidth = pageWidth - margin * 2
+      const contentHeight = pageHeight - margin * 2
+      const sliceHeight = Math.max(1, Math.floor(canvas.width * (contentHeight / contentWidth)))
+      for (let offsetY = 0, page = 0; offsetY < canvas.height; offsetY += sliceHeight, page += 1) {
+        if (page > 0) pdf.addPage()
+        const slice = document.createElement('canvas')
+        slice.width = canvas.width
+        slice.height = Math.min(sliceHeight, canvas.height - offsetY)
+        const context = slice.getContext('2d')
+        if (!context) throw new Error('The PDF canvas could not be read.')
+        context.fillStyle = '#ffffff'
+        context.fillRect(0, 0, slice.width, slice.height)
+        context.drawImage(canvas, 0, offsetY, canvas.width, slice.height, 0, 0, slice.width, slice.height)
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.94), 'JPEG', margin, margin, contentWidth, (slice.height / slice.width) * contentWidth, undefined, 'FAST')
+      }
+      pdf.save(filename)
       exportRoot.remove()
     } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.') }
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }

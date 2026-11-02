@@ -53,6 +53,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
   const [loading, setLoading] = useState(false)
   const [confidenceOpen, setConfidenceOpen] = useState(false)
   const [confidence, setConfidence] = useState(session.confidenceRating ?? 0)
+  const [confidenceSaved, setConfidenceSaved] = useState(Boolean(session.confidenceRating))
   const subject = session.activity?.unit.subject
   const unit = session.activity?.unit
   const activityType = session.activity?.activityType
@@ -62,6 +63,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
     setLoading(true)
     try {
       await onStatusChange(session.id, status, rating)
+      if (status === 'completed' && rating !== undefined) setConfidenceSaved(true)
     } finally {
       setLoading(false)
     }
@@ -129,7 +131,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                     Done
                   </Button>
                 )}
-                {session.status === 'completed' && !session.confidenceRating && <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" onClick={() => setConfidenceOpen(true)}>Add confidence</Button>}
+                {session.status === 'completed' && !session.confidenceRating && !confidenceSaved && null}
                 {confidenceOpen && <div className="absolute right-0 top-full z-[100] mt-2 w-64 rounded-xl border bg-background p-3 text-left shadow-2xl" role="dialog" aria-label="Session confidence"><p className="text-xs font-semibold">How confident do you feel?</p><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} type="button" aria-label={`${rating} out of 5`} onClick={() => setConfidence(rating)} className={`rounded-md border px-2 py-2 text-sm ${confidence === rating ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}`}>{rating}</button>)}</div><div className="mt-2 flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setConfidenceOpen(false)}>Cancel</Button><Button size="sm" disabled={!confidence || loading} onClick={() => { setConfidenceOpen(false); void handleStatus('completed', confidence) }}>Confirm</Button></div></div>}
                 {session.status === 'scheduled' && (
                   <Button

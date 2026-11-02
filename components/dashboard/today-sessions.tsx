@@ -20,6 +20,7 @@ export interface TodaySessionItem {
   unitName: string
   activityType: string
   activityLabel: string
+  confidenceRating?: number | null
 }
 
 interface TodaySessionsProps {
@@ -34,7 +35,14 @@ export function TodaySessions({ sessions, todayIso }: TodaySessionsProps) {
   const toggleComplete = async (sessionId: string, currentStatus: string) => {
     try {
       setLoadingId(sessionId)
-      const nextStatus = currentStatus === 'completed' ? 'scheduled' : 'completed'
+      // Completed sessions require a confidence rating. The overview is a
+      // summary surface, so send users to the planner for the compact rating
+      // interaction instead of bypassing that workflow.
+      if (currentStatus !== 'completed' || !sessions.find((session) => session.id === sessionId)?.confidenceRating) {
+        router.push(`/planner/${todayIso}`)
+        return
+      }
+      const nextStatus = 'scheduled'
       const res = await fetch(`/api/sessions/${sessionId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -94,7 +102,7 @@ export function TodaySessions({ sessions, todayIso }: TodaySessionsProps) {
                   <div className="flex items-center gap-3 min-w-0">
                     <button
                       onClick={() => toggleComplete(session.id, session.status)}
-                      disabled={isBusy}
+                      disabled={isBusy || (isCompleted && Boolean(session.confidenceRating))}
                       title={isCompleted ? 'Mark uncompleted' : 'Mark completed'}
                       className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                         isCompleted

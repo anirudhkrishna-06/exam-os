@@ -102,6 +102,7 @@ export default async function OverviewPage() {
     activityType: s.activity?.activityType ?? 'theory_1',
     activityLabel:
       ACTIVITY_LABELS[s.activity?.activityType ?? 'theory_1'] ?? s.activity?.activityType,
+    confidenceRating: s.confidenceRating,
   }))
 
   // Map upcoming exams with readiness

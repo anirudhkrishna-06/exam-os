@@ -53,6 +53,7 @@ export default async function DailyPlannerPage({
     estimatedDurationMinutes: s.estimatedDurationMinutes,
     actualDurationMinutes: s.actualDurationMinutes,
     completionNote: s.completionNote,
+    confidenceRating: s.confidenceRating,
     activity: s.activity
       ? {
           id: s.activity.id,

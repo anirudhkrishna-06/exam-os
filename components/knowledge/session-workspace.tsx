@@ -128,9 +128,11 @@ const editorCss = `
 .session-editor a { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; transition: text-decoration-color 0.15s ease, color 0.15s ease; cursor: text; }
 .session-editor a:hover { color: #2383e2; text-decoration-color: #2383e2; }
 .session-editor hr { border: 0; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); margin: 1.4rem 0; }
-.session-editor table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
-.session-editor th, .session-editor td { border: 1px solid color-mix(in srgb, currentColor 16%, transparent); padding: 0.45rem 0.7rem; text-align: left; vertical-align: top; }
+.session-editor table { border-collapse: separate; border-spacing: 0; width: 100%; max-width: 100%; margin: 1rem 0; overflow: hidden; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 0.65rem; font-size: 0.92rem; table-layout: fixed; }
+.session-editor th, .session-editor td { border-right: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); padding: 0.55rem 0.75rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 .session-editor th { background: color-mix(in srgb, currentColor 5%, transparent); font-weight: 600; }
+.session-editor tr:last-child td { border-bottom: 0; }
+.session-editor th:last-child, .session-editor td:last-child { border-right: 0; }
 .session-editor ::selection { background: rgba(35, 131, 226, 0.28); }
 .session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.7rem 0; text-align: center; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
@@ -150,18 +152,21 @@ function inlineMarkdown(escaped: string) {
 }
 
 function mathHtml(value: string) {
-  const pattern = /\\\((.+?)\\\)|\\\[(.+?)\\\]|\$\$([\s\S]+?)\$\$/g
+  // Some clipboard sources escape an already escaped TeX delimiter (\\[...\\]).
+  // Normalize only delimiter backslashes; TeX command backslashes are untouched.
+  const normalized = value.replace(/\\{2,}(?=[()[\]])/g, '\\')
+  const pattern = /\\{1,2}\(([\s\S]+?)\\{1,2}\)|\\{1,2}\[([\s\S]+?)\\{1,2}\]|\$\$([\s\S]+?)\$\$/g
   let output = ''
   let cursor = 0
-  for (const match of value.matchAll(pattern)) {
+  for (const match of normalized.matchAll(pattern)) {
     const start = match.index ?? 0
-    output += escapeHtml(value.slice(cursor, start))
-    const expression = match[1] ?? match[2] ?? match[3] ?? ''
+    output += escapeHtml(normalized.slice(cursor, start))
+    const expression = (match[1] ?? match[2] ?? match[3] ?? '').trim()
     const display = Boolean(match[2] ?? match[3])
     output += `<span data-math="${display ? 'block' : 'inline'}" data-latex="${escapeHtml(expression)}">${katex.renderToString(expression, { displayMode: display, throwOnError: false })}</span>`
     cursor = start + match[0].length
   }
-  return output + escapeHtml(value.slice(cursor))
+  return output + escapeHtml(normalized.slice(cursor))
 }
 
 function normalizeUrl(value: string) {
@@ -173,11 +178,25 @@ function plainText(html: string) {
   return html.replace(/<\/(p|div|h[1-6]|li|blockquote|tr|pre)>/gi, ' ').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
 }
 
+function tableCells(line: string) {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim())
+}
+
+function isTableSeparator(line: string) {
+  const cells = tableCells(line)
+  return cells.length > 0 && cells.every((cell) => /^:?-{2,}:?$/.test(cell))
+}
+
+function renderTableCell(cell: string, tag: 'th' | 'td') {
+  return `<${tag}>${inlineMarkdown(mathHtml(escapeHtml(cell)))}</${tag}>`
+}
+
 function markdownTable(lines: string[]) {
-  const rows = lines.map((line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim()))
-  const header = rows[0]
-  const body = rows.slice(2)
-  return `<table><thead><tr>${header.map((cell) => `<th>${inlineMarkdown(escapeHtml(cell))}</th>`).join('')}</tr></thead><tbody>${body.map((row) => `<tr>${header.map((_, index) => `<td>${inlineMarkdown(escapeHtml(row[index] ?? ''))}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  const rows = lines.map(tableCells)
+  const columnCount = Math.max(...rows.map((row) => row.length), 1)
+  const header = Array.from({ length: columnCount }, (_, index) => rows[0]?.[index] ?? '')
+  const body = rows.slice(2).filter((row) => row.some(Boolean))
+  return `<table><thead><tr>${header.map((cell) => renderTableCell(cell, 'th')).join('')}</tr></thead><tbody>${body.map((row) => `<tr>${header.map((_, index) => renderTableCell(row[index] ?? '', 'td')).join('')}</tr>`).join('')}</tbody></table>`
 }
 
 function plainTextToHtml(text: string) {
@@ -187,7 +206,7 @@ function plainTextToHtml(text: string) {
   while (index < lines.length) {
     const line = lines[index]
     const next = lines[index + 1] ?? ''
-    if (line.includes('|') && /^\s*\|?\s*:?-{2,}/.test(next)) {
+    if (line.includes('|') && isTableSeparator(next)) {
       const tableLines = [line, next]
       index += 2
       while (index < lines.length && lines[index].includes('|')) tableLines.push(lines[index++])
@@ -248,7 +267,7 @@ function normalizePastedHtml(html: string, text: string) {
   doc.body.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
     if (element.querySelector('code,pre,[data-math]')) return
     const source = element.textContent ?? ''
-    if (!/[\\$][\\(\[\$]/.test(source)) return
+    if (!/[\\$]/.test(source)) return
     element.innerHTML = mathHtml(source)
   })
   return doc.body.innerHTML || plainTextToHtml(text)
@@ -412,14 +431,24 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   /* ---------- setup: hydrate editor once, never rewrite innerHTML while typing (it would reset the caret) */
   useEffect(() => {
     if (!editorRef.current || hydratedRef.current) return
+    const sourceContent = initial.note.content || ''
     const legacy = document.createElement('div')
-    legacy.innerHTML = initial.note.content || ''
+    // Notes imported as plain text need the same Markdown/TeX conversion as pasted text.
+    // Previously they were assigned directly to innerHTML, leaving tables and equations literal.
+    legacy.innerHTML = /<[a-z][\s\S]*>/i.test(sourceContent) ? sourceContent : plainTextToHtml(sourceContent)
     legacy.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
       if (element.querySelector('code,pre,[data-math]')) return
       const source = element.textContent ?? ''
-      if (/[\\$][\\(\[\$]/.test(source)) element.innerHTML = mathHtml(source)
+      if (/[\\$]/.test(source)) element.innerHTML = mathHtml(source)
     })
-    editorRef.current.innerHTML = legacy.innerHTML
+    const nextContent = legacy.innerHTML
+    editorRef.current.innerHTML = nextContent
+    if (nextContent !== sourceContent) {
+      queueMicrotask(() => {
+        setContent(nextContent)
+        setSaveState('unsaved')
+      })
+    }
     hydratedRef.current = true
     try { document.execCommand('defaultParagraphSeparator', false, 'p') } catch { /* unsupported */ }
   }, [initial.note.content])

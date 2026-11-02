@@ -87,11 +87,11 @@ export function DailyView({
     sessionsBySlot.set(s.slotName, s)
   }
 
-  const handleStatusChange = async (sessionId: string, newStatus: SessionCardData['status']) => {
+  const handleStatusChange = async (sessionId: string, newStatus: SessionCardData['status'], confidenceRating?: number) => {
     const res = await fetch(`/api/sessions/${sessionId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus }),
+      body: JSON.stringify({ status: newStatus, confidenceRating }),
     })
     if (res.ok) {
       router.refresh()

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Clipboa
 import Link from 'next/link'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
-import { ArrowLeft, Bold, Check, ChevronDown, Code, ExternalLink, Expand, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink } from 'lucide-react'
+import { ArrowLeft, Bold, Check, ChevronDown, Code, Download, ExternalLink, Expand, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import katex from 'katex'
+import { jsPDF } from 'jspdf'
 
 gsap.registerPlugin(Flip)
 
@@ -129,6 +131,8 @@ const editorCss = `
 .session-editor th, .session-editor td { border: 1px solid color-mix(in srgb, currentColor 16%, transparent); padding: 0.45rem 0.7rem; text-align: left; vertical-align: top; }
 .session-editor th { background: color-mix(in srgb, currentColor 5%, transparent); font-weight: 600; }
 .session-editor ::selection { background: rgba(35, 131, 226, 0.28); }
+.session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.7rem 0; text-align: center; }
+.session-editor [data-math='inline'] { white-space: nowrap; }
 `
 
 const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -142,6 +146,21 @@ function escapeHtml(value: string) {
 
 function inlineMarkdown(escaped: string) {
   return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`([^`]+)`/g, '<code>$1</code>')
+}
+
+function mathHtml(value: string) {
+  const pattern = /\\\((.+?)\\\)|\\\[(.+?)\\\]|\$\$([\s\S]+?)\$\$/g
+  let output = ''
+  let cursor = 0
+  for (const match of value.matchAll(pattern)) {
+    const start = match.index ?? 0
+    output += escapeHtml(value.slice(cursor, start))
+    const expression = match[1] ?? match[2] ?? match[3] ?? ''
+    const display = Boolean(match[2] ?? match[3])
+    output += `<span data-math="${display ? 'block' : 'inline'}" data-latex="${escapeHtml(expression)}">${katex.renderToString(expression, { displayMode: display, throwOnError: false })}</span>`
+    cursor = start + match[0].length
+  }
+  return output + escapeHtml(value.slice(cursor))
 }
 
 function normalizeUrl(value: string) {
@@ -201,7 +220,7 @@ function plainTextToHtml(text: string) {
     }
     if (/^>\s?/.test(line)) { output.push(`<blockquote>${inlineMarkdown(escapeHtml(line.replace(/^>\s?/, '')))}</blockquote>`); index += 1; continue }
     if (/^\s*(---|\*\*\*)\s*$/.test(line)) { output.push('<hr>'); index += 1; continue }
-    if (line.trim()) output.push(`<p>${inlineMarkdown(escapeHtml(line))}</p>`)
+    if (line.trim()) output.push(`<p>${inlineMarkdown(mathHtml(line))}</p>`)
     index += 1
   }
   return output.join('')
@@ -224,6 +243,12 @@ function normalizePastedHtml(html: string, text: string) {
       node.removeAttribute(attribute.name)
     })
     if (tag === 'a') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noreferrer') }
+  })
+  doc.body.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
+    if (element.querySelector('code,pre,[data-math]')) return
+    const source = element.textContent ?? ''
+    if (!/[\\$][\\(\[\$]/.test(source)) return
+    element.innerHTML = mathHtml(source)
   })
   return doc.body.innerHTML || plainTextToHtml(text)
 }
@@ -358,6 +383,8 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   const [bubble, setBubble] = useState<BubbleState>({ x: 0, y: 0, visible: false, linkMode: false })
   const [linkUrl, setLinkUrl] = useState('')
   const [slash, setSlash] = useState<SlashState | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState('')
 
   const rootRef = useRef<HTMLElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -384,7 +411,14 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   /* ---------- setup: hydrate editor once, never rewrite innerHTML while typing (it would reset the caret) */
   useEffect(() => {
     if (!editorRef.current || hydratedRef.current) return
-    editorRef.current.innerHTML = initial.note.content || ''
+    const legacy = document.createElement('div')
+    legacy.innerHTML = initial.note.content || ''
+    legacy.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
+      if (element.querySelector('code,pre,[data-math]')) return
+      const source = element.textContent ?? ''
+      if (/[\\$][\\(\[\$]/.test(source)) element.innerHTML = mathHtml(source)
+    })
+    editorRef.current.innerHTML = legacy.innerHTML
     hydratedRef.current = true
     try { document.execCommand('defaultParagraphSeparator', false, 'p') } catch { /* unsupported */ }
   }, [initial.note.content])
@@ -877,6 +911,30 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   const readingMinutes = Math.max(1, Math.round(words / 200))
   const slashItems = slash ? blockMatches(slash.query) : []
 
+  async function downloadPdf() {
+    if (exporting) return
+    setExporting(true); setExportError('')
+    try {
+      if (saveStateRef.current !== 'saved') await saveNow()
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
+      try {
+        const logoResponse = await fetch('/favicon.ico')
+        const logoBlob = await logoResponse.blob()
+        const logoData = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(logoBlob) })
+        pdf.addImage(logoData, 'PNG', 20, 10, 10, 10)
+      } catch { /* the export remains usable if a browser cannot decode the favicon */ }
+      const exportRoot = document.createElement('article')
+      exportRoot.style.cssText = 'width: 170mm; color: #171717; background: white; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.55;'
+      const resourceList = workspace.links.length ? `<h2 style="font-size:14pt;margin-top:20px">Resources</h2><ul>${workspace.links.map((link) => `<li><a href="${escapeHtml(link.url)}">${escapeHtml(link.nickname)}</a> <span style="color:#666">(${escapeHtml(link.category)})</span></li>`).join('')}</ul>` : ''
+      const keywordList = workspace.keywords.length ? `<p style="margin-top:16px;color:#555"><strong>Keywords:</strong> ${workspace.keywords.map((item) => escapeHtml(item.keyword)).join(', ')}</p>` : ''
+      exportRoot.innerHTML = `<div style="border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:16px"><img src="/favicon.ico" alt="ExamOS" style="width:28px;height:28px;vertical-align:middle;margin-right:8px"><span style="font-size:10pt;color:#666">ExamOS · Workspace export</span><h1 style="font-size:22pt;margin:6px 0">${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:10pt;color:#555">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p style="color:#777">No notes yet.</p>'}${resourceList}${keywordList}</section>`
+      exportRoot.querySelectorAll('[contenteditable],button').forEach((node) => node.removeAttribute('contenteditable'))
+      const filename = [unit?.subject.name, unit?.name, title.trim() || 'Workspace', new Date().toISOString().slice(0, 10)].filter(Boolean).join('-').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.pdf'
+      await new Promise<void>((resolve) => pdf.html(exportRoot, { x: 20, y: 28, width: 170, margin: [28, 20, 18, 20], autoPaging: 'text', windowWidth: 850, callback: (document) => { document.save(filename); resolve() } }))
+    } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.') }
+    finally { setExporting(false) }
+  }
+
   return <main ref={rootRef} className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
     <style>{editorCss}</style>
 
@@ -884,7 +942,9 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       <Link href={`/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />Planner</Link>
       <div className="flex items-center gap-3">
         <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>
+        <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>
         <SaveIndicator state={saveState} />
+        {exportError && <span role="alert" className="text-xs text-destructive">{exportError}</span>}
       </div>
     </div>
 

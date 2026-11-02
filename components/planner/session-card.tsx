@@ -16,6 +16,7 @@ export interface SessionCardData {
   estimatedDurationMinutes: number
   actualDurationMinutes?: number | null
   completionNote?: string | null
+  confidenceRating?: number | null
   activity?: {
     id: string
     activityType: string
@@ -35,7 +36,7 @@ export interface SessionCardData {
 
 interface SessionCardProps {
   session: SessionCardData
-  onStatusChange?: (sessionId: string, newStatus: SessionCardData['status']) => Promise<void>
+  onStatusChange?: (sessionId: string, newStatus: SessionCardData['status'], confidenceRating?: number) => Promise<void>
   onEdit?: (session: SessionCardData) => void
   onOpen?: (session: SessionCardData) => void
 }
@@ -50,15 +51,17 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 export function SessionCard({ session, onStatusChange, onEdit, onOpen }: SessionCardProps) {
   const [loading, setLoading] = useState(false)
+  const [confidenceOpen, setConfidenceOpen] = useState(false)
+  const [confidence, setConfidence] = useState(session.confidenceRating ?? 0)
   const subject = session.activity?.unit.subject
   const unit = session.activity?.unit
   const activityType = session.activity?.activityType
 
-  const handleStatus = async (status: SessionCardData['status']) => {
+  const handleStatus = async (status: SessionCardData['status'], rating?: number) => {
     if (!onStatusChange) return
     setLoading(true)
     try {
-      await onStatusChange(session.id, status)
+      await onStatusChange(session.id, status, rating)
     } finally {
       setLoading(false)
     }
@@ -119,13 +122,15 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                     variant="outline"
                     className="h-7 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
                     disabled={loading}
-                    onClick={() => handleStatus('completed')}
+                    onClick={() => setConfidenceOpen(true)}
                     title="Mark Completed"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                     Done
                   </Button>
                 )}
+                {session.status === 'completed' && <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" onClick={() => setConfidenceOpen(true)}>{session.confidenceRating ? 'Edit rating' : 'Rate confidence'}</Button>}
+                {confidenceOpen && <div className="absolute right-4 z-20 mt-2 w-64 rounded-xl border bg-background p-3 shadow-lg" role="dialog" aria-label="Session confidence"><p className="text-xs font-semibold">How confident do you feel?</p><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} type="button" aria-label={`${rating} out of 5`} onClick={() => setConfidence(rating)} className={`rounded-md border px-2 py-2 text-sm ${confidence === rating ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}`}>{rating}</button>)}</div><div className="mt-2 flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setConfidenceOpen(false)}>Cancel</Button><Button size="sm" disabled={!confidence || loading} onClick={() => { setConfidenceOpen(false); void handleStatus('completed', confidence) }}>Confirm</Button></div></div>}
                 {session.status === 'scheduled' && (
                   <Button
                     size="sm"
@@ -150,6 +155,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                   </Button>
                 )}
               </div>
+              {session.status === 'completed' && session.confidenceRating ? <p className="text-[11px] text-muted-foreground">Confidence {session.confidenceRating}/5</p> : null}
             </div>
           </div>
         </CardContent>

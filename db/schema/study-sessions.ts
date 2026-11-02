@@ -27,6 +27,8 @@ export const studySessions = pgTable('study_sessions', {
   estimatedDurationMinutes: integer('estimated_duration_minutes').notNull(),
   actualDurationMinutes: integer('actual_duration_minutes'),
   completionNote: text('completion_note'),
+  // Nullable for sessions completed before confidence tracking was introduced.
+  confidenceRating: integer('confidence_rating'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),

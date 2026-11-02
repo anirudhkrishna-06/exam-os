@@ -32,6 +32,7 @@ export interface SubjectProgress {
   totalEstimatedSessions: number
   totalCompletedSessions: number
   totalScheduledSessions: number
+  confidenceRatedSessions?: number
 }
 
 export interface SeasonProgress {

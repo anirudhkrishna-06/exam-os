@@ -10,7 +10,7 @@ export async function PATCH(
     const user = await requireAuth()
     const { sessionId } = await params
     const body = await request.json()
-    const { status, note, actualDurationMinutes } = body
+    const { status, note, actualDurationMinutes, confidenceRating } = body
 
     if (!status || !['scheduled', 'in_progress', 'completed', 'skipped', 'overdue'].includes(status)) {
       return NextResponse.json({ error: 'Valid status is required' }, { status: 400 })
@@ -21,7 +21,8 @@ export async function PATCH(
       sessionId,
       status,
       note,
-      actualDurationMinutes
+      actualDurationMinutes,
+      confidenceRating,
     )
 
     return NextResponse.json(updated)

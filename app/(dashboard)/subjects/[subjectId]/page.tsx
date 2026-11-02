@@ -3,8 +3,7 @@ import { getSubjectById } from '@/services/subject.service'
 import { getSubjectProgress } from '@/services/progress.service'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Calendar, CheckCircle2, Clock } from 'lucide-react'
-import { SubjectSyllabusView } from '@/components/syllabus/subject-syllabus-view'
+import { ChevronRight, Calendar } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { daysUntil, formatDate } from '@/lib/date/utils'
@@ -81,58 +80,20 @@ export default async function SubjectPage({
             {/* Quick Stat Pill */}
             <div className="flex items-center gap-4 bg-muted/40 p-3 rounded-lg border border-border/60">
               <div className="text-center px-2">
-                <p className="text-[11px] text-muted-foreground font-medium">Completion</p>
+                <p className="text-[11px] text-muted-foreground font-medium">Confidence</p>
                 <p className="text-xl font-bold text-foreground">
                   {progress?.percentComplete ?? 0}%
-                </p>
-              </div>
-              <div className="w-px h-8 bg-border" />
-              <div className="text-center px-2">
-                <p className="text-[11px] text-muted-foreground font-medium">Sessions</p>
-                <p className="text-xl font-bold text-foreground">
-                  {progress?.totalCompletedSessions ?? 0}
-                  <span className="text-xs font-normal text-muted-foreground">
-                    /{progress?.totalEstimatedSessions ?? 0}
-                  </span>
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Unit Progress Mini-Bars */}
-          {progress && progress.units.length > 0 && (
-            <div className="mt-5 pt-4 border-t border-border/60">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Unit Progress Breakdown</p>
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-2.5">
-                {progress.units.map((unit) => (
-                  <div
-                    key={unit.unitId}
-                    className="p-2.5 rounded-lg border border-border/60 bg-card text-xs space-y-1.5"
-                  >
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-semibold text-foreground truncate">Unit {unit.unitNumber}</span>
-                      <span className="text-muted-foreground">{unit.percentComplete}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${unit.percentComplete}%`,
-                          backgroundColor: subject.color ?? '#6366f1',
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
 
       {/* Main Syllabus Configuration */}
-      <SubjectSyllabusView initialSubject={subject as any} />
-      {knowledge && <SubjectKnowledgeHub subjectId={subject.id} units={knowledge.units as any} />}
+      <p className="text-xs text-muted-foreground">Confidence-based readiness from completed, rated sessions.</p>
+      {knowledge && <SubjectKnowledgeHub subjectId={subject.id} units={knowledge.units} />}
     </div>
   )
 }

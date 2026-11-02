@@ -31,10 +31,16 @@ export function calculateSubjectProgress(subject: {
     totalCompleted: number
     totalScheduled: number
   }
+  confidenceRatings?: number[]
 }): SubjectProgress {
   const unitProgressList = subject.units.map((u) => calculateUnitProgress(u))
 
   const percentComplete =
+    subject.confidenceRatings !== undefined
+      ? subject.confidenceRatings.length > 0
+        ? Math.round((subject.confidenceRatings.reduce((sum, rating) => sum + rating, 0) / subject.confidenceRatings.length / 5) * 100)
+        : 0
+      :
     unitProgressList.length > 0
       ? Math.round(
           unitProgressList.reduce((sum, u) => sum + u.percentComplete, 0) / unitProgressList.length,
@@ -51,6 +57,7 @@ export function calculateSubjectProgress(subject: {
     totalEstimatedSessions: subject.sessionStats?.totalEstimated ?? 0,
     totalCompletedSessions: subject.sessionStats?.totalCompleted ?? 0,
     totalScheduledSessions: subject.sessionStats?.totalScheduled ?? 0,
+    confidenceRatedSessions: subject.confidenceRatings?.length,
   }
 }
 

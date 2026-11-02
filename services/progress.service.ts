@@ -140,6 +140,16 @@ export async function getSeasonProgress(
     subjectStatsMap.set(row.subjectId, existing)
   }
 
+  const ratedSubjectRows = await db
+    .select({ subjectId: subjects.id, confidenceRating: studySessions.confidenceRating })
+    .from(studySessions)
+    .innerJoin(unitActivities, eq(studySessions.activityId, unitActivities.id))
+    .innerJoin(units, eq(unitActivities.unitId, units.id))
+    .innerJoin(subjects, eq(units.subjectId, subjects.id))
+    .where(and(eq(studySessions.userId, userId), eq(studySessions.seasonId, seasonId), eq(studySessions.status, 'completed')))
+  const confidenceMap = new Map<string, number[]>()
+  for (const row of ratedSubjectRows) if (row.confidenceRating != null) confidenceMap.set(row.subjectId, [...(confidenceMap.get(row.subjectId) ?? []), row.confidenceRating])
+
   // 5. Build subject input for calculateSeasonProgress
   const seasonSubjects = subjectRows.map((sub) => ({
     subjectId: sub.id,
@@ -166,6 +176,7 @@ export async function getSeasonProgress(
       totalCompleted: 0,
       totalScheduled: 0,
     },
+    confidenceRatings: confidenceMap.get(sub.id) ?? [],
   }))
 
   // 6. Season-level session stats
@@ -227,6 +238,14 @@ export async function getSubjectProgress(
     sessionStats.totalEstimated += n
   }
 
+  const ratedSessions = await db
+    .select({ confidenceRating: studySessions.confidenceRating })
+    .from(studySessions)
+    .innerJoin(unitActivities, eq(studySessions.activityId, unitActivities.id))
+    .innerJoin(units, eq(unitActivities.unitId, units.id))
+    .where(and(eq(studySessions.userId, userId), eq(units.subjectId, subjectId), eq(studySessions.status, 'completed')))
+  const confidenceRatings = ratedSessions.flatMap((row) => row.confidenceRating == null ? [] : [row.confidenceRating])
+
   return calculateSubjectProgress({
     subjectId: subject.id,
     subjectName: subject.name,
@@ -248,6 +267,7 @@ export async function getSubjectProgress(
       })),
     })),
     sessionStats,
+    confidenceRatings,
   })
 }
 

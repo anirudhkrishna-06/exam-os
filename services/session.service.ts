@@ -109,6 +109,7 @@ export async function updateSessionStatus(
   newStatus: 'scheduled' | 'in_progress' | 'completed' | 'skipped' | 'overdue',
   note?: string,
   actualDurationMinutes?: number,
+  confidenceRating?: number,
 ) {
   const session = await getSessionById(userId, sessionId)
   if (!session) throw new Error('Session not found')
@@ -116,13 +117,20 @@ export async function updateSessionStatus(
   const previousStatus = session.status
   const now = new Date()
 
+  if (confidenceRating !== undefined && (!Number.isInteger(confidenceRating) || confidenceRating < 1 || confidenceRating > 5)) {
+    throw new Error('Confidence rating must be an integer from 1 to 5')
+  }
+  if (newStatus === 'completed' && confidenceRating === undefined && previousStatus !== 'completed') {
+    throw new Error('A confidence rating is required when completing a session')
+  }
   const [updated] = await db
     .update(studySessions)
     .set({
       status: newStatus,
       completionNote: note ?? session.completionNote,
       actualDurationMinutes: actualDurationMinutes ?? session.actualDurationMinutes,
-      completedAt: newStatus === 'completed' ? now : session.completedAt,
+      completedAt: newStatus === 'completed' ? (session.completedAt ?? now) : null,
+      confidenceRating: newStatus === 'completed' ? (confidenceRating ?? session.confidenceRating) : null,
       updatedAt: now,
     })
     .where(eq(studySessions.id, sessionId))

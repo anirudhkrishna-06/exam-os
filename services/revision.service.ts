@@ -4,6 +4,10 @@ import { and, eq } from 'drizzle-orm'
 import { getDailyCapacity } from '@/services/capacity.service'
 import { getPreferences, getScheduleSlots } from '@/services/preferences.service'
 import { revisionDismissals } from '@/db/schema/revision-dismissals'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 const INTERVALS = [2, 7, 14]
 const DAY = 86_400_000
@@ -21,6 +25,7 @@ function daysBetween(from: string, to: string) {
 }
 
 export async function getRevisionSuggestions(userId: string, seasonId: string, today: string) {
+  return cacheAside(redisKeys.revision(userId, seasonId, today), CACHE_TTL.revision, async () => {
   const [sessions, slots, preferences, dismissals] = await Promise.all([
     db.query.studySessions.findMany({
       where: and(eq(studySessions.userId, userId), eq(studySessions.seasonId, seasonId)),
@@ -70,8 +75,10 @@ export async function getRevisionSuggestions(userId: string, seasonId: string, t
     })
   }
   return suggestions.sort((a, b) => a.suggestedDate.localeCompare(b.suggestedDate)).slice(0, 8)
+  })
 }
 
 export async function dismissRevisionSuggestion(userId: string, activityId: string, suggestedDate: string) {
   await db.insert(revisionDismissals).values({ userId, activityId, suggestedDate }).onConflictDoNothing()
+  await invalidateUserCaches({ userId })
 }

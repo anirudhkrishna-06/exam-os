@@ -13,6 +13,9 @@ import { eq, and, count, sql, asc } from 'drizzle-orm'
 import { calculateSubjectProgress } from '@/modules/progress/subject-progress'
 import { calculateSeasonProgress } from '@/modules/progress/season-progress'
 import type { SeasonProgress, SubjectProgress } from '@/modules/progress/types'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -81,6 +84,7 @@ export async function getSeasonProgress(
   userId: string,
   seasonId: string,
 ): Promise<SeasonProgress | null> {
+  return cacheAside(redisKeys.progress(userId, seasonId), CACHE_TTL.progress, async () => {
   // 1. Verify season ownership
   const season = await db.query.examSeasons.findFirst({
     where: and(eq(examSeasons.id, seasonId), eq(examSeasons.userId, userId)),
@@ -195,6 +199,7 @@ export async function getSeasonProgress(
     subjects: seasonSubjects,
     sessionStats: seasonStats,
   })
+  })
 }
 
 /**
@@ -204,6 +209,7 @@ export async function getSubjectProgress(
   userId: string,
   subjectId: string,
 ): Promise<SubjectProgress | null> {
+  return cacheAside(redisKeys.subjectProgress(userId, subjectId), CACHE_TTL.progress, async () => {
   // 1. Fetch subject with nested data (verify ownership via userId on subject)
   const subject = await db.query.subjects.findFirst({
     where: and(eq(subjects.id, subjectId), eq(subjects.userId, userId)),
@@ -279,6 +285,7 @@ export async function getSubjectProgress(
       const ratings = confidenceByUnit.get(unit.id) ?? []
       return [unit.id, { ratedSessions: ratings.length, averageRating: ratings.length ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : 0, estimatedSessions: unit.unitActivities.filter((activity) => activity.enabled).reduce((sum, activity) => sum + activity.estimatedSessions, 0) }]
     })),
+  })
   })
 }
 

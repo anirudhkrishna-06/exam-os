@@ -2,6 +2,10 @@ import { db } from '@/db'
 import { examSeasons } from '@/db/schema/exam-seasons'
 import { subjects } from '@/db/schema/subjects'
 import { eq, and, desc } from 'drizzle-orm'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 export interface CreateSeasonData {
   name: string
@@ -44,10 +48,12 @@ export async function createSeason(userId: string, data: CreateSeasonData) {
     })
   }
 
+  await invalidateUserCaches({ userId })
   return season
 }
 
 export async function getSeasonsForUser(userId: string) {
+  return cacheAside(redisKeys.seasons(userId), CACHE_TTL.seasons, async () => {
   const seasons = await db.query.examSeasons.findMany({
     where: eq(examSeasons.userId, userId),
     orderBy: [desc(examSeasons.createdAt)],
@@ -58,10 +64,11 @@ export async function getSeasonsForUser(userId: string) {
     },
   })
   return seasons
+  })
 }
 
 export async function getSeasonById(userId: string, seasonId: string) {
-  const season = await db.query.examSeasons.findFirst({
+  return cacheAside(redisKeys.season(userId, seasonId), CACHE_TTL.seasons, () => db.query.examSeasons.findFirst({
     where: and(eq(examSeasons.id, seasonId), eq(examSeasons.userId, userId)),
     with: {
       subjects: {
@@ -76,8 +83,7 @@ export async function getSeasonById(userId: string, seasonId: string) {
         },
       },
     },
-  })
-  return season
+  }))
 }
 
 export async function updateSeason(
@@ -90,6 +96,7 @@ export async function updateSeason(
     .set({ ...data, updatedAt: new Date() })
     .where(and(eq(examSeasons.id, seasonId), eq(examSeasons.userId, userId)))
     .returning()
+  await invalidateUserCaches({ userId, seasonId })
   return updated
 }
 
@@ -97,5 +104,6 @@ export async function deleteSeason(userId: string, seasonId: string) {
   await db
     .delete(examSeasons)
     .where(and(eq(examSeasons.id, seasonId), eq(examSeasons.userId, userId)))
+  await invalidateUserCaches({ userId, seasonId })
 }
 

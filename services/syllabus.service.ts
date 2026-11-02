@@ -3,6 +3,7 @@ import { units } from '@/db/schema/units'
 import { unitActivities } from '@/db/schema/activities'
 import { subjects } from '@/db/schema/subjects'
 import { eq, and } from 'drizzle-orm'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 async function verifyUnitOwnership(userId: string, unitId: string) {
   const unit = await db.query.units.findFirst({
@@ -31,6 +32,7 @@ export async function updateUnit(
     .set({ ...data, updatedAt: new Date() })
     .where(eq(units.id, unitId))
     .returning()
+  await invalidateUserCaches({ userId })
   return updated
 }
 
@@ -70,6 +72,7 @@ export async function updateActivity(
     .set(updateData)
     .where(eq(unitActivities.id, activityId))
     .returning()
+  await invalidateUserCaches({ userId })
   return updated
 }
 
@@ -95,6 +98,7 @@ export async function bulkUpdateUnitsForSubject(
         .where(eq(units.id, unitId))
     )
   )
+  await invalidateUserCaches({ userId, subjectId })
 }
 
 export async function bulkUpdateActivitiesForSubject(
@@ -127,4 +131,5 @@ export async function bulkUpdateActivitiesForSubject(
         .where(eq(unitActivities.id, id))
     )
   )
+  await invalidateUserCaches({ userId, subjectId })
 }

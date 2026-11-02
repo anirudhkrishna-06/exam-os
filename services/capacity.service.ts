@@ -9,6 +9,7 @@ import { dailySlotOverrides } from '@/db/schema/daily-slot-overrides'
 import { dailySessionTemplates } from '@/db/schema/daily-templates'
 import { userPreferences } from '@/db/schema/user-preferences'
 import { eq, and } from 'drizzle-orm'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 // ---- Daily capacity ----
 
@@ -41,12 +42,14 @@ export async function setDailyCapacity(
       .set({ sessionCount, isRestDay, updatedAt: new Date() })
       .where(eq(dailyCapacity.id, existing.id))
       .returning()
+    await invalidateUserCaches({ userId, seasonId })
     return updated
   }
   const [created] = await db
     .insert(dailyCapacity)
     .values({ userId, seasonId, date, sessionCount, isRestDay })
     .returning()
+  await invalidateUserCaches({ userId, seasonId })
   return created
 }
 
@@ -103,13 +106,17 @@ export async function setSlotOverrides(
       )
     )
 
-  if (overrides.length === 0) return []
+  if (overrides.length === 0) {
+    await invalidateUserCaches({ userId, seasonId })
+    return []
+  }
 
   const inserted = await db
     .insert(dailySlotOverrides)
     .values(overrides.map(o => ({ ...o, userId, seasonId, date })))
     .returning()
 
+  await invalidateUserCaches({ userId, seasonId })
   return inserted
 }
 

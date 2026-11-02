@@ -9,6 +9,9 @@ import { dailyCapacity } from '@/db/schema/daily-capacity'
 import { dailySessionTemplates } from '@/db/schema/daily-templates'
 import { eq, and, sql } from 'drizzle-orm'
 import { daysUntil } from '@/lib/date/utils'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
 
 export interface UnitReadinessSummary {
   unitId: string
@@ -41,6 +44,7 @@ export async function getExamReadiness(
   userId: string,
   seasonId: string,
 ): Promise<SubjectReadiness[]> {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'readiness'), CACHE_TTL.dashboard, async () => {
   const seasonProgress = await getSeasonProgress(userId, seasonId)
   if (!seasonProgress) return []
 
@@ -116,4 +120,5 @@ export async function getExamReadiness(
 
   // Sort by daysRemaining ascending (earliest exams first)
   return readinessList.sort((a, b) => a.daysRemaining - b.daysRemaining)
+  })
 }

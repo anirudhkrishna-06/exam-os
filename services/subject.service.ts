@@ -4,6 +4,10 @@ import { units } from '@/db/schema/units'
 import { unitActivities } from '@/db/schema/activities'
 import { examSeasons } from '@/db/schema/exam-seasons'
 import { eq, and, asc } from 'drizzle-orm'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 export async function createSubject(
   userId: string,
@@ -29,6 +33,7 @@ export async function createSubject(
   // Auto-create 5 units + 5 activities each
   await createUnitsAndActivities(subject.id)
 
+  await invalidateUserCaches({ userId, seasonId: data.seasonId, subjectId: subject.id })
   return subject
 }
 
@@ -58,7 +63,7 @@ export async function createUnitsAndActivities(subjectId: string) {
 }
 
 export async function getSubjectById(userId: string, subjectId: string) {
-  const subject = await db.query.subjects.findFirst({
+  return cacheAside(redisKeys.subject(userId, subjectId), CACHE_TTL.subjects, () => db.query.subjects.findFirst({
     where: and(eq(subjects.id, subjectId), eq(subjects.userId, userId)),
     with: {
       units: {
@@ -68,8 +73,7 @@ export async function getSubjectById(userId: string, subjectId: string) {
         },
       },
     },
-  })
-  return subject
+  }))
 }
 
 export async function updateSubject(
@@ -82,17 +86,20 @@ export async function updateSubject(
     .set({ ...data, updatedAt: new Date() })
     .where(and(eq(subjects.id, subjectId), eq(subjects.userId, userId)))
     .returning()
+  await invalidateUserCaches({ userId, subjectId: updated?.id })
   return updated
 }
 
 export async function deleteSubject(userId: string, subjectId: string) {
+  const existing = await db.query.subjects.findFirst({ where: and(eq(subjects.id, subjectId), eq(subjects.userId, userId)) })
   await db
     .delete(subjects)
     .where(and(eq(subjects.id, subjectId), eq(subjects.userId, userId)))
+  await invalidateUserCaches({ userId, seasonId: existing?.seasonId, subjectId })
 }
 
 export async function getSubjectsForSeason(userId: string, seasonId: string) {
-  return db.query.subjects.findMany({
+  return cacheAside(redisKeys.subjects(userId, seasonId), CACHE_TTL.subjects, () => db.query.subjects.findMany({
     where: and(eq(subjects.seasonId, seasonId), eq(subjects.userId, userId)),
     orderBy: [asc(subjects.position)],
     with: {
@@ -101,6 +108,6 @@ export async function getSubjectsForSeason(userId: string, seasonId: string) {
         with: { unitActivities: true },
       },
     },
-  })
+  }))
 }
 

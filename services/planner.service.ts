@@ -22,6 +22,10 @@ import {
   getSlotOverridesForSeason,
   getDailyCapacity,
 } from './capacity.service'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 // ---- Data assembly ----
 
@@ -243,6 +247,7 @@ export async function generatePlanForSeason(userId: string, seasonId: string) {
 
   const planVersionId = await writePlanToDB(userId, seasonId, output.sessions, 'initial')
 
+  await invalidateUserCaches({ userId, seasonId })
   return { planVersionId, output }
 }
 
@@ -304,10 +309,12 @@ export async function reschedulePlanForSeason(userId: string, seasonId: string) 
     await db.update(studySessions).set({ planVersionId }).where(eq(studySessions.id, pid))
   }
 
+  await invalidateUserCaches({ userId, seasonId })
   return { planVersionId, output }
 }
 
 export async function getActivePlan(userId: string, seasonId: string) {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'active-plan'), CACHE_TTL.dashboard, async () => {
   const latestVersion = await db.query.planVersions.findFirst({
     where: and(eq(planVersions.seasonId, seasonId), eq(planVersions.userId, userId)),
     orderBy: (t, { desc }) => [desc(t.versionNumber)],
@@ -333,9 +340,11 @@ export async function getActivePlan(userId: string, seasonId: string) {
   })
 
   return { planVersion: latestVersion, sessions }
+  })
 }
 
 export async function getPlanSummary(userId: string, seasonId: string) {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'plan-summary'), CACHE_TTL.dashboard, async () => {
   const season = await db.query.examSeasons.findFirst({
     where: and(eq(examSeasons.id, seasonId), eq(examSeasons.userId, userId)),
   })
@@ -391,6 +400,7 @@ export async function getPlanSummary(userId: string, seasonId: string) {
     completedSessions,
     hasPlan: !!hasPlan,
   }
+  })
 }
 
 export async function createManualSession(
@@ -456,6 +466,7 @@ export async function createManualSession(
     newStatus: 'scheduled',
     action: 'created',
   })
+  await invalidateUserCaches({ userId, seasonId: data.seasonId })
   return session
 }
 

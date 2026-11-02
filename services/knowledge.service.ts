@@ -6,6 +6,10 @@ import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
 import { unitNotes, unitLinks, unitKeywords } from '@/db/schema/unit-knowledge'
 import { and, asc, eq } from 'drizzle-orm'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 async function ownedSession(userId: string, sessionId: string) {
   return db.query.studySessions.findFirst({
@@ -36,18 +40,21 @@ export async function saveSessionNote(userId: string, sessionId: string, title: 
     target: sessionNotes.sessionId,
     set: { title: title.trim() || 'Untitled note', content, updatedAt: new Date() },
   }).returning()
+  await invalidateUserCaches({ userId })
   return note
 }
 
 export async function addSessionLink(userId: string, sessionId: string, data: { url: string; nickname: string; category: string }) {
   if (!(await ownedSession(userId, sessionId))) throw new Error('Session not found')
   const [link] = await db.insert(knowledgeLinks).values({ sessionId, userId, ...data }).returning()
+  await invalidateUserCaches({ userId })
   return link
 }
 
 export async function removeSessionLink(userId: string, linkId: string) {
   const [link] = await db.delete(knowledgeLinks).where(and(eq(knowledgeLinks.id, linkId), eq(knowledgeLinks.userId, userId))).returning()
   if (!link) throw new Error('Link not found')
+  await invalidateUserCaches({ userId })
 }
 
 export async function addSessionKeyword(userId: string, sessionId: string, keyword: string) {
@@ -55,15 +62,18 @@ export async function addSessionKeyword(userId: string, sessionId: string, keywo
   const clean = keyword.trim().slice(0, 100)
   if (!clean) throw new Error('Keyword is required')
   const [result] = await db.insert(sessionKeywords).values({ sessionId, userId, keyword: clean }).onConflictDoNothing().returning()
+  await invalidateUserCaches({ userId })
   return result ?? db.query.sessionKeywords.findFirst({ where: and(eq(sessionKeywords.sessionId, sessionId), eq(sessionKeywords.keyword, clean)) })
 }
 
 export async function removeSessionKeyword(userId: string, keywordId: string) {
   const [keyword] = await db.delete(sessionKeywords).where(and(eq(sessionKeywords.id, keywordId), eq(sessionKeywords.userId, userId))).returning()
   if (!keyword) throw new Error('Keyword not found')
+  await invalidateUserCaches({ userId })
 }
 
 export async function getSubjectKnowledge(userId: string, subjectId: string) {
+  return cacheAside(redisKeys.knowledge(userId, 'subject', subjectId), CACHE_TTL.knowledge, async () => {
   const subject = await db.query.subjects.findFirst({ where: and(eq(subjects.id, subjectId), eq(subjects.userId, userId)), with: { units: { orderBy: (table, { asc }) => [asc(table.position)] } } })
   if (!subject) return null
   const result = await Promise.all(subject.units.map(async (unit) => {
@@ -84,9 +94,11 @@ export async function getSubjectKnowledge(userId: string, subjectId: string) {
     return { ...unit, notes: [...unitOwnedNotes.map((item) => ({ ...item, source: 'unit' as const })), ...notes.map((item) => ({ ...item, source: 'session' as const }))], links: [...unitOwnedLinks.map((item) => ({ ...item, source: 'unit' as const })), ...links.map((item) => ({ ...item, source: 'session' as const }))], keywords: [...unitOwnedKeywords.map((item) => ({ ...item, source: 'unit' as const })), ...keywords.map((item) => ({ ...item, source: 'session' as const }))] }
   }))
   return { ...subject, units: result }
+  })
 }
 
 export async function getUnitKnowledge(userId: string, unitId: string) {
+  return cacheAside(redisKeys.knowledge(userId, 'unit', unitId), CACHE_TTL.knowledge, async () => {
   const unit = await db.query.units.findFirst({ where: and(eq(units.id, unitId)), with: { subject: true, unitActivities: true } })
   if (!unit || unit.subject.userId !== userId) return null
   const [ownedNotes, ownedLinks, ownedKeywords] = await Promise.all([
@@ -103,17 +115,18 @@ export async function getUnitKnowledge(userId: string, unitId: string) {
     sessionIds.length ? db.query.sessionKeywords.findMany({ where: eq(sessionKeywords.userId, userId) }) : Promise.resolve([]),
   ])
   return { unit, sessions: unitSessions, notes: [...ownedNotes.map((item) => ({ ...item, source: 'unit' as const })), ...notes.filter((item) => sessionIds.includes(item.sessionId)).map((item) => ({ ...item, source: 'session' as const }))], links: [...ownedLinks.map((item) => ({ ...item, source: 'unit' as const })), ...links.filter((item) => sessionIds.includes(item.sessionId)).map((item) => ({ ...item, source: 'session' as const }))], keywords: [...ownedKeywords.map((item) => ({ ...item, source: 'unit' as const })), ...keywords.filter((item) => sessionIds.includes(item.sessionId)).map((item) => ({ ...item, source: 'session' as const }))] }
+  })
 }
 
 export async function addUnitNote(userId: string, unitId: string, title: string, content: string) {
   const unit = await db.query.units.findFirst({ where: eq(units.id, unitId), with: { subject: true } }); if (!unit || unit.subject.userId !== userId) throw new Error('Unit not found')
-  const [note] = await db.insert(unitNotes).values({ userId, unitId, title: title.trim() || 'Untitled note', content }).returning(); return note
+  const [note] = await db.insert(unitNotes).values({ userId, unitId, title: title.trim() || 'Untitled note', content }).returning(); await invalidateUserCaches({ userId }); return note
 }
 export async function addUnitLink(userId: string, unitId: string, data: { url: string; nickname: string; category: string }) {
   const unit = await db.query.units.findFirst({ where: eq(units.id, unitId), with: { subject: true } }); if (!unit || unit.subject.userId !== userId) throw new Error('Unit not found')
-  const [link] = await db.insert(unitLinks).values({ userId, unitId, ...data }).returning(); return link
+  const [link] = await db.insert(unitLinks).values({ userId, unitId, ...data }).returning(); await invalidateUserCaches({ userId }); return link
 }
 export async function addUnitKeyword(userId: string, unitId: string, keyword: string) {
   const unit = await db.query.units.findFirst({ where: eq(units.id, unitId), with: { subject: true } }); if (!unit || unit.subject.userId !== userId) throw new Error('Unit not found')
-  const [item] = await db.insert(unitKeywords).values({ userId, unitId, keyword: keyword.trim() }).onConflictDoNothing().returning(); return item
+  const [item] = await db.insert(unitKeywords).values({ userId, unitId, keyword: keyword.trim() }).onConflictDoNothing().returning(); await invalidateUserCaches({ userId }); return item
 }

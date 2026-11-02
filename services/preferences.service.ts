@@ -2,12 +2,15 @@ import { db } from '@/db'
 import { userPreferences } from '@/db/schema/user-preferences'
 import { dailySessionTemplates } from '@/db/schema/daily-templates'
 import { eq, asc } from 'drizzle-orm'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 export async function getPreferences(userId: string) {
-  const prefs = await db.query.userPreferences.findFirst({
+  return cacheAside(redisKeys.preferences(userId), CACHE_TTL.preferences, () => db.query.userPreferences.findFirst({
     where: eq(userPreferences.userId, userId),
-  })
-  return prefs
+  }))
 }
 
 export async function updatePreferences(
@@ -19,10 +22,12 @@ export async function updatePreferences(
     .set({ ...data, updatedAt: new Date() })
     .where(eq(userPreferences.userId, userId))
     .returning()
+  await invalidateUserCaches({ userId })
   return updated
 }
 
 export async function getScheduleSlots(userId: string) {
+  return cacheAside(redisKeys.scheduleSlots(userId), CACHE_TTL.preferences, async () => {
   const slots = await db.query.dailySessionTemplates.findMany({
     where: eq(dailySessionTemplates.userId, userId),
     orderBy: [asc(dailySessionTemplates.position)],
@@ -35,6 +40,7 @@ export async function getScheduleSlots(userId: string) {
     startTime: slot.startTime.slice(0, 5),
     endTime: slot.endTime.slice(0, 5),
   }))
+  })
 }
 
 export interface SlotData {
@@ -73,6 +79,7 @@ export async function saveScheduleSlots(
     .set({ defaultSessionsPerDay, updatedAt: new Date() })
     .where(eq(userPreferences.userId, userId))
 
+  await invalidateUserCaches({ userId })
   return getScheduleSlots(userId)
 }
 

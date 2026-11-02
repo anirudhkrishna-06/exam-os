@@ -10,6 +10,9 @@ import { units } from '@/db/schema/units'
 import { unitActivities } from '@/db/schema/activities'
 import { eq, and, count, asc, sql, gte } from 'drizzle-orm'
 import { getSeasonProgress } from './progress.service'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
 
 export interface WeeklyCompletionPoint {
   week: string
@@ -37,6 +40,7 @@ export async function getWeeklyCompletionData(
   userId: string,
   seasonId: string,
 ): Promise<WeeklyCompletionPoint[]> {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'weekly'), CACHE_TTL.dashboard, async () => {
   // Query sessions grouped by ISO week (or year-week)
   const rows = await db
     .select({
@@ -68,6 +72,7 @@ export async function getWeeklyCompletionData(
     week: `W/C ${week.slice(5)}`,
     ...stats,
   }))
+  })
 }
 
 export interface WorkloadSummary {
@@ -82,6 +87,7 @@ export async function getWorkloadSummary(
   userId: string,
   seasonId: string,
 ): Promise<WorkloadSummary> {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'workload'), CACHE_TTL.dashboard, async () => {
   const todayStr = new Date().toISOString().split('T')[0]
 
   // Get week start and end using SQL
@@ -123,6 +129,7 @@ export async function getWorkloadSummary(
     remainingSessions: Number(stat.remaining || 0),
     daysWithCapacity: Number(upcomingDays[0]?.cnt || 0),
   }
+  })
 }
 
 
@@ -130,6 +137,7 @@ export async function getSessionStatusBreakdown(
   userId: string,
   seasonId: string,
 ): Promise<SessionStatusBreakdown[]> {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'status'), CACHE_TTL.dashboard, async () => {
   const rows = await db
     .select({
       status: studySessions.status,
@@ -158,12 +166,14 @@ export async function getSessionStatusBreakdown(
     count: map.get(status) ?? 0,
     color: meta.color,
   }))
+  })
 }
 
 export async function getSubjectDistribution(
   userId: string,
   seasonId: string,
 ): Promise<SubjectDistributionPoint[]> {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'distribution'), CACHE_TTL.dashboard, async () => {
   const seasonProgress = await getSeasonProgress(userId, seasonId)
   if (!seasonProgress) return []
 
@@ -174,4 +184,5 @@ export async function getSubjectDistribution(
     remainingSessions: Math.max(0, s.totalEstimatedSessions - s.totalCompletedSessions),
     totalSessions: s.totalEstimatedSessions,
   }))
+  })
 }

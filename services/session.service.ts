@@ -8,11 +8,15 @@ import { studySessions } from '@/db/schema/study-sessions'
 import { sessionHistory } from '@/db/schema/session-history'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import { getDailyCapacity } from './capacity.service'
+import { cacheAside } from '@/lib/redis/cache'
+import { redisKeys } from '@/lib/redis/keys'
+import { CACHE_TTL } from '@/lib/redis/ttl'
+import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 // ---- Queries ----
 
 export async function getSessionsForDate(userId: string, date: string) {
-  return db.query.studySessions.findMany({
+  return cacheAside(redisKeys.day(userId, date), CACHE_TTL.calendar, () => db.query.studySessions.findMany({
     where: and(
       eq(studySessions.userId, userId),
       eq(studySessions.scheduledDate, date),
@@ -27,10 +31,11 @@ export async function getSessionsForDate(userId: string, date: string) {
       },
     },
     orderBy: (t, { asc }) => [asc(t.position)],
-  })
+  }))
 }
 
 export async function getSessionsForMonth(userId: string, year: number, month: number) {
+  return cacheAside(redisKeys.calendar(userId, year, month), CACHE_TTL.calendar, async () => {
   // month is 1-based
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
   const lastDay = new Date(year, month, 0).getDate()
@@ -62,6 +67,7 @@ export async function getSessionsForMonth(userId: string, year: number, month: n
   }
 
   return Object.fromEntries(byDate)
+  })
 }
 
 export async function getSessionById(userId: string, sessionId: string) {
@@ -147,6 +153,8 @@ export async function updateSessionStatus(
     action: newStatus === 'completed' ? 'completed' : newStatus === 'skipped' ? 'skipped' : 'edited',
   })
 
+  await invalidateUserCaches({ userId, seasonId: session.seasonId })
+
   return updated
 }
 
@@ -203,6 +211,8 @@ export async function moveSession(
     action: 'rescheduled',
   })
 
+  await invalidateUserCaches({ userId, seasonId: session.seasonId })
+
   return updated
 }
 
@@ -212,5 +222,6 @@ export async function removeSession(userId: string, sessionId: string) {
   if (session.status === 'completed') throw new Error('Cannot delete a completed session')
 
   await db.delete(studySessions).where(eq(studySessions.id, sessionId))
+  await invalidateUserCaches({ userId, seasonId: session.seasonId })
 }
 

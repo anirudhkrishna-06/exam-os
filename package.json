@@ -15,6 +15,7 @@
     "test:phase1": "tsx --env-file=.env.local scripts/test-phase1.ts",
     "test:phase2": "tsx --env-file=.env.local scripts/test-phase2.ts",
     "test:phase3": "tsx --env-file=.env.local scripts/test-phase3.ts",
+    "test:redis": "tsx --env-file=.env.local scripts/test-redis-rest.ts",
     "test": "vitest run"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "@radix-ui/react-tooltip": "^1.4.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/katex": "^0.16.8",
+    "@upstash/redis": "^1.40.0",
     "argon2": "0.31.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

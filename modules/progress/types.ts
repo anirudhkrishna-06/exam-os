@@ -33,6 +33,7 @@ export interface SubjectProgress {
   totalCompletedSessions: number
   totalScheduledSessions: number
   confidenceRatedSessions?: number
+  unitConfidence?: Record<string, { ratedSessions: number; averageRating: number; estimatedSessions: number }>
 }
 
 export interface SeasonProgress {

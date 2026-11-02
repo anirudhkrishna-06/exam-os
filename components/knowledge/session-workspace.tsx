@@ -917,22 +917,41 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
     try {
       if (saveStateRef.current !== 'saved') await saveNow()
       const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
-      try {
-        const logoResponse = await fetch('/favicon.ico')
-        const logoBlob = await logoResponse.blob()
-        const logoData = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(logoBlob) })
-        pdf.addImage(logoData, 'PNG', 20, 10, 10, 10)
-      } catch { /* the export remains usable if a browser cannot decode the favicon */ }
       const exportRoot = document.createElement('article')
-      exportRoot.style.cssText = 'width: 170mm; color: #171717; background: white; font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.55;'
+      exportRoot.dataset.examOsPdfExport = 'true'
+      // html2canvas, used internally by jsPDF.html, needs the source node to be
+      // connected to the document. Keep it off-screen and remove it in finally.
+      exportRoot.style.cssText = 'position:fixed;left:-100000px;top:0;display:block;width:794px;min-height:1123px;padding:0 0 40px;overflow:visible;color:#171717;background:#fff;color-scheme:light;font-family:Arial,sans-serif;font-size:11pt;line-height:1.55;'
       const resourceList = workspace.links.length ? `<h2 style="font-size:14pt;margin-top:20px">Resources</h2><ul>${workspace.links.map((link) => `<li><a href="${escapeHtml(link.url)}">${escapeHtml(link.nickname)}</a> <span style="color:#666">(${escapeHtml(link.category)})</span></li>`).join('')}</ul>` : ''
       const keywordList = workspace.keywords.length ? `<p style="margin-top:16px;color:#555"><strong>Keywords:</strong> ${workspace.keywords.map((item) => escapeHtml(item.keyword)).join(', ')}</p>` : ''
-      exportRoot.innerHTML = `<div style="border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:16px"><img src="/favicon.ico" alt="ExamOS" style="width:28px;height:28px;vertical-align:middle;margin-right:8px"><span style="font-size:10pt;color:#666">ExamOS · Workspace export</span><h1 style="font-size:22pt;margin:6px 0">${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:10pt;color:#555">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p style="color:#777">No notes yet.</p>'}${resourceList}${keywordList}</section>`
-      exportRoot.querySelectorAll('[contenteditable],button').forEach((node) => node.removeAttribute('contenteditable'))
+      exportRoot.innerHTML = `<style>
+        * { box-sizing: border-box; }
+        article, section, div, p, h1, h2, h3, h4, li, td, th, span, strong, em, a { color: #171717 !important; }
+        h1, h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+        p, ul, ol, blockquote, pre, table, img { break-inside: avoid; page-break-inside: avoid; }
+        p { margin: 6px 0; }
+        h1 { font-size: 24px; line-height: 1.2; margin: 8px 0; }
+        h2 { font-size: 19px; line-height: 1.25; margin: 18px 0 7px; }
+        h3 { font-size: 16px; line-height: 1.3; margin: 14px 0 5px; }
+        ul, ol { padding-left: 25px; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { border: 1px solid #b8b8b8; padding: 6px 8px; text-align: left; vertical-align: top; }
+        th { background: #f0f0f0; font-weight: 700; }
+        pre { white-space: pre-wrap; background: #f3f3f3; border: 1px solid #ddd; padding: 10px; }
+        a { text-decoration: underline; }
+        img { max-width: 100%; }
+      </style><div style="border-bottom:1px solid #cfcfcf;padding-bottom:12px;margin-bottom:18px"><img src="/favicon.ico" alt="ExamOS" style="width:28px;height:28px;vertical-align:middle;margin-right:8px"><span style="font-size:13px">ExamOS · Workspace export</span><h1>${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:13px">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p>No notes yet.</p>'}${resourceList}${keywordList}</section>`
+      document.body.appendChild(exportRoot)
+      const images = Array.from(exportRoot.querySelectorAll('img'))
+      await Promise.all(images.map(async (image) => { if (image.complete) return; await new Promise<void>((resolve) => { image.addEventListener('load', () => resolve(), { once: true }); image.addEventListener('error', () => resolve(), { once: true }) }) }))
       const filename = [unit?.subject.name, unit?.name, title.trim() || 'Workspace', new Date().toISOString().slice(0, 10)].filter(Boolean).join('-').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.pdf'
-      await new Promise<void>((resolve) => pdf.html(exportRoot, { x: 20, y: 28, width: 170, margin: [28, 20, 18, 20], autoPaging: 'text', windowWidth: 850, callback: (document) => { document.save(filename); resolve() } }))
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('PDF generation timed out.')), 30000)
+        pdf.html(exportRoot, { x: 18, y: 18, width: 174, margin: [18, 18, 18, 18], autoPaging: 'text', windowWidth: 794, callback: (document) => { window.clearTimeout(timeout); document.save(filename); resolve() } })
+      })
+      exportRoot.remove()
     } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.') }
-    finally { setExporting(false) }
+    finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
   return <main ref={rootRef} className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>

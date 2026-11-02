@@ -80,7 +80,7 @@ export default async function SubjectPage({
             {/* Quick Stat Pill */}
             <div className="flex items-center gap-4 bg-muted/40 p-3 rounded-lg border border-border/60">
               <div className="text-center px-2">
-                <p className="text-[11px] text-muted-foreground font-medium">Confidence</p>
+                <p className="text-[11px] text-muted-foreground font-medium">Progress</p>
                 <p className="text-xl font-bold text-foreground">
                   {progress?.percentComplete ?? 0}%
                 </p>
@@ -88,11 +88,11 @@ export default async function SubjectPage({
             </div>
           </div>
 
+          {progress && progress.units.length > 0 && <div className="mt-5 border-t border-border/60 pt-4"><p className="mb-2 text-xs font-medium text-muted-foreground">Unit progress</p><div className="grid grid-cols-1 gap-2.5 sm:grid-cols-5">{progress.units.map((unit) => <div key={unit.unitId} className="space-y-1.5 rounded-lg border border-border/60 bg-card p-2.5 text-xs"><div className="flex items-center justify-between text-[11px]"><span className="truncate font-semibold text-foreground">Unit {unit.unitNumber}</span><span className="text-muted-foreground">{unit.percentComplete}%</span></div><div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full transition-all" style={{ width: `${unit.percentComplete}%`, backgroundColor: subject.color ?? '#6366f1' }} /></div></div>)}</div></div>}
         </CardContent>
       </Card>
 
       {/* Main Syllabus Configuration */}
-      <p className="text-xs text-muted-foreground">Confidence-based readiness from completed, rated sessions.</p>
       {knowledge && <SubjectKnowledgeHub subjectId={subject.id} units={knowledge.units} />}
     </div>
   )

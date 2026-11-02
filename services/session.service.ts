@@ -120,6 +120,9 @@ export async function updateSessionStatus(
   if (confidenceRating !== undefined && (!Number.isInteger(confidenceRating) || confidenceRating < 1 || confidenceRating > 5)) {
     throw new Error('Confidence rating must be an integer from 1 to 5')
   }
+  if (session.confidenceRating != null && confidenceRating !== undefined && confidenceRating !== session.confidenceRating) {
+    throw new Error('Confidence rating cannot be changed once saved')
+  }
   if (newStatus === 'completed' && confidenceRating === undefined && previousStatus !== 'completed') {
     throw new Error('A confidence rating is required when completing a session')
   }

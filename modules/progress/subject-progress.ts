@@ -31,16 +31,17 @@ export function calculateSubjectProgress(subject: {
     totalCompleted: number
     totalScheduled: number
   }
-  confidenceRatings?: number[]
+  unitConfidence?: Record<string, { ratedSessions: number; averageRating: number; estimatedSessions: number }>
 }): SubjectProgress {
-  const unitProgressList = subject.units.map((u) => calculateUnitProgress(u))
+  const unitProgressList = subject.units.map((u) => {
+    if (subject.unitConfidence === undefined) return calculateUnitProgress(u)
+    const confidence = subject.unitConfidence?.[u.unitId]
+    if (!confidence || confidence.ratedSessions === 0) return { ...calculateUnitProgress(u), percentComplete: 0 }
+    const coverage = Math.min(1, confidence.ratedSessions / Math.max(1, confidence.estimatedSessions))
+    return { ...calculateUnitProgress(u), percentComplete: Math.round((confidence.averageRating / 5) * coverage * 100) }
+  })
 
   const percentComplete =
-    subject.confidenceRatings !== undefined
-      ? subject.confidenceRatings.length > 0
-        ? Math.round((subject.confidenceRatings.reduce((sum, rating) => sum + rating, 0) / subject.confidenceRatings.length / 5) * 100)
-        : 0
-      :
     unitProgressList.length > 0
       ? Math.round(
           unitProgressList.reduce((sum, u) => sum + u.percentComplete, 0) / unitProgressList.length,
@@ -57,7 +58,8 @@ export function calculateSubjectProgress(subject: {
     totalEstimatedSessions: subject.sessionStats?.totalEstimated ?? 0,
     totalCompletedSessions: subject.sessionStats?.totalCompleted ?? 0,
     totalScheduledSessions: subject.sessionStats?.totalScheduled ?? 0,
-    confidenceRatedSessions: subject.confidenceRatings?.length,
+    confidenceRatedSessions: Object.values(subject.unitConfidence ?? {}).reduce((sum, item) => sum + item.ratedSessions, 0),
+    unitConfidence: subject.unitConfidence,
   }
 }
 

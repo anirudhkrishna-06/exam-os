@@ -122,6 +122,16 @@ describe('Progress Modules', () => {
     expect(sub.percentComplete).toBe(50)
   })
 
+  it('scales confidence by the amount of unit material evidenced', () => {
+    const subject = calculateSubjectProgress({
+      subjectId: 's1', subjectName: 'Physics', examDate: '2026-11-20', color: '#6366f1',
+      units: [{ unitId: 'u1', unitNumber: 1, unitName: 'Mechanics', initialStatus: 'new', activities: [] }],
+      unitConfidence: { u1: { ratedSessions: 1, averageRating: 4, estimatedSessions: 8 } },
+    })
+    expect(subject.units[0].percentComplete).toBe(10)
+    expect(subject.percentComplete).toBe(10)
+  })
+
   it('calculates season progress across subjects', () => {
     const season = calculateSeasonProgress({
       seasonId: 'ses1',

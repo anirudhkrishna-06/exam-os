@@ -947,7 +947,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       const filename = [unit?.subject.name, unit?.name, title.trim() || 'Workspace', new Date().toISOString().slice(0, 10)].filter(Boolean).join('-').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.pdf'
       await new Promise<void>((resolve, reject) => {
         const timeout = window.setTimeout(() => reject(new Error('PDF generation timed out.')), 30000)
-        pdf.html(exportRoot, { x: 18, y: 18, width: 174, margin: [18, 18, 18, 18], autoPaging: 'text', windowWidth: 794, callback: (document) => { window.clearTimeout(timeout); document.save(filename); resolve() } })
+        pdf.html(exportRoot, { x: 18, y: 18, width: 174, margin: [18, 18, 18, 18], autoPaging: 'text', windowWidth: 794, html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 794 }, callback: (document) => { window.clearTimeout(timeout); document.save(filename); resolve() } })
       })
       exportRoot.remove()
     } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.') }

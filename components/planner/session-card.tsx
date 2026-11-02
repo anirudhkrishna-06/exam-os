@@ -76,7 +76,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
     : 'Study session'
 
   return (
-    <Card className="overflow-hidden border transition-all hover:shadow-sm">
+    <Card className="relative z-0 overflow-visible border transition-all hover:z-20 hover:shadow-sm">
       <div className="flex border-l-4" style={{ borderLeftColor: subjectColor }}>
         <CardContent className="p-4 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -107,7 +107,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
               )}
             </div>
 
-            <div className="relative flex flex-col items-end gap-2">
+            <div className="relative z-50 flex flex-col items-end gap-2">
               <SessionStatus status={session.status} />
               
               <div className="flex items-center gap-1 mt-1">
@@ -130,7 +130,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                   </Button>
                 )}
                 {session.status === 'completed' && !session.confidenceRating && <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" onClick={() => setConfidenceOpen(true)}>Add confidence</Button>}
-                {confidenceOpen && <div className="absolute right-0 top-full z-30 mt-2 w-64 rounded-xl border bg-background p-3 text-left shadow-lg" role="dialog" aria-label="Session confidence"><p className="text-xs font-semibold">How confident do you feel?</p><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} type="button" aria-label={`${rating} out of 5`} onClick={() => setConfidence(rating)} className={`rounded-md border px-2 py-2 text-sm ${confidence === rating ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}`}>{rating}</button>)}</div><div className="mt-2 flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setConfidenceOpen(false)}>Cancel</Button><Button size="sm" disabled={!confidence || loading} onClick={() => { setConfidenceOpen(false); void handleStatus('completed', confidence) }}>Confirm</Button></div></div>}
+                {confidenceOpen && <div className="absolute right-0 top-full z-[100] mt-2 w-64 rounded-xl border bg-background p-3 text-left shadow-2xl" role="dialog" aria-label="Session confidence"><p className="text-xs font-semibold">How confident do you feel?</p><div className="mt-2 grid grid-cols-5 gap-1">{[1, 2, 3, 4, 5].map((rating) => <button key={rating} type="button" aria-label={`${rating} out of 5`} onClick={() => setConfidence(rating)} className={`rounded-md border px-2 py-2 text-sm ${confidence === rating ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'}`}>{rating}</button>)}</div><div className="mt-2 flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setConfidenceOpen(false)}>Cancel</Button><Button size="sm" disabled={!confidence || loading} onClick={() => { setConfidenceOpen(false); void handleStatus('completed', confidence) }}>Confirm</Button></div></div>}
                 {session.status === 'scheduled' && (
                   <Button
                     size="sm"

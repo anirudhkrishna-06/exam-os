@@ -236,9 +236,14 @@ const schema = {
 }
 
 const databaseUrl = process.env.DATABASE_URL
+// pg-connection-string is moving to standard libpq semantics. Spell out the
+// current SSL behavior so pg does not emit its deprecation warning at runtime.
+const normalizedDatabaseUrl = databaseUrl?.replace(/([?&])sslmode=(prefer|require|verify-ca)(?=(&|$))/i, '$1sslmode=verify-full')
 const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: databaseUrl?.includes('sslmode=require')
+  connectionString: normalizedDatabaseUrl,
+  // Keep the existing deployment behavior for providers whose certificate
+  // chain is not available in the local runtime.
+  ssl: normalizedDatabaseUrl?.includes('sslmode=verify-full')
     ? { rejectUnauthorized: false }
     : undefined,
 })

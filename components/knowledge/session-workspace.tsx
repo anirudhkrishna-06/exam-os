@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Clipboa
 import Link from 'next/link'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
-import { ArrowLeft, Bold, Check, ChevronDown, Code, Download, ExternalLink, Expand, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink } from 'lucide-react'
+import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -404,6 +404,8 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   const [linkUrl, setLinkUrl] = useState('')
   const [slash, setSlash] = useState<SlashState | null>(null)
   const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [exportPhase, setExportPhase] = useState('Getting your workspace ready')
   const [exportError, setExportError] = useState('')
 
   const rootRef = useRef<HTMLElement>(null)
@@ -418,6 +420,8 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   const selectionRef = useRef<Range | null>(null)
   const slashRef = useRef<{ node: Text; start: number } | null>(null)
   const flipStateRef = useRef<ReturnType<typeof Flip.getState> | null>(null)
+  const exportDialogRef = useRef<HTMLDivElement>(null)
+  const exportFillRef = useRef<HTMLDivElement>(null)
   const wideBusyRef = useRef(false)
   const savedRef = useRef({ title: initial.note.title, content: initial.note.content })
   const latestRef = useRef({ title, content })
@@ -427,6 +431,16 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
     latestRef.current = { title, content }
     saveStateRef.current = saveState
   }, [title, content, saveState])
+
+  useEffect(() => {
+    if (!exportDialogRef.current || !exporting || prefersReducedMotion()) return
+    gsap.fromTo(exportDialogRef.current, { opacity: 0, y: 18, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: 'back.out(1.6)' })
+  }, [exporting])
+
+  useEffect(() => {
+    if (!exportFillRef.current) return
+    gsap.to(exportFillRef.current, { width: `${exportProgress}%`, duration: prefersReducedMotion() ? 0 : 0.35, ease: 'power2.out', overwrite: true })
+  }, [exportProgress])
 
   /* ---------- setup: hydrate editor once, never rewrite innerHTML while typing (it would reset the caret) */
   useEffect(() => {
@@ -943,13 +957,16 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
 
   async function downloadPdf() {
     if (exporting) return
-    setExporting(true); setExportError('')
+    setExporting(true); setExportProgress(2); setExportPhase('Getting your workspace ready'); setExportError('')
     try {
-      if (saveStateRef.current !== 'saved') await saveNow()
+      if (saveStateRef.current !== 'saved') { setExportPhase('Saving the latest changes'); await saveNow() }
+      setExportProgress(12); setExportPhase('Building a print-ready layout')
       const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
       const exportRoot = document.createElement('article')
       exportRoot.dataset.examOsPdfExport = 'true'
-      exportRoot.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483647;display:block;width:794px;min-height:1123px;padding:0 0 40px;overflow:visible;opacity:0;pointer-events:none;color:#171717;background:#fff;color-scheme:light;font-family:Arial,sans-serif;font-size:11pt;line-height:1.55;'
+      // html2canvas can capture an opacity:0 source as a white canvas. Keep the
+      // export fully laid out offscreen and make it visible only to the renderer.
+      exportRoot.style.cssText = 'position:absolute;left:-10000px;top:0;z-index:-1;display:block;width:794px;min-height:1123px;padding:0 0 40px;overflow:visible;opacity:1;visibility:visible;pointer-events:none;color:#171717;background:#fff;color-scheme:light;font-family:Arial,sans-serif;font-size:11pt;line-height:1.55;'
       const resourceList = workspace.links.length ? `<h2 style="font-size:14pt;margin-top:20px">Resources</h2><ul>${workspace.links.map((link) => `<li><a href="${escapeHtml(link.url)}">${escapeHtml(link.nickname)}</a> <span style="color:#666">(${escapeHtml(link.category)})</span></li>`).join('')}</ul>` : ''
       const keywordList = workspace.keywords.length ? `<p style="margin-top:16px;color:#555"><strong>Keywords:</strong> ${workspace.keywords.map((item) => escapeHtml(item.keyword)).join(', ')}</p>` : ''
       exportRoot.innerHTML = `<style>
@@ -970,12 +987,16 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         img { max-width: 100%; }
       </style><div style="border-bottom:1px solid #cfcfcf;padding-bottom:12px;margin-bottom:18px"><img src="/favicon.ico" alt="ExamOS" style="width:28px;height:28px;vertical-align:middle;margin-right:8px"><span style="font-size:13px">ExamOS · Workspace export</span><h1>${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:13px">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p>No notes yet.</p>'}${resourceList}${keywordList}</section>`
       document.body.appendChild(exportRoot)
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      if ('fonts' in document) await document.fonts.ready
       const images = Array.from(exportRoot.querySelectorAll('img'))
-      await Promise.all(images.map(async (image) => { if (image.complete) return; await new Promise<void>((resolve) => { image.addEventListener('load', () => resolve(), { once: true }); image.addEventListener('error', () => resolve(), { once: true }) }) }))
+      await Promise.all(images.map(async (image) => { if (image.complete && image.naturalWidth > 0) return; await new Promise<void>((resolve) => { image.addEventListener('load', () => resolve(), { once: true }); image.addEventListener('error', () => resolve(), { once: true }) }) }))
+      setExportProgress(26); setExportPhase('Rendering notes, tables, and equations')
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
       const filename = [unit?.subject.name, unit?.name, title.trim() || 'Workspace', new Date().toISOString().slice(0, 10)].filter(Boolean).join('-').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') + '.pdf'
-      const canvas = await html2canvas(exportRoot, { backgroundColor: '#ffffff', scale: 2, useCORS: true, logging: false, width: 794, windowWidth: 794, onclone: (clonedDocument) => {
+      const canvas = await html2canvas(exportRoot, { backgroundColor: '#ffffff', scale: Math.min(2, window.devicePixelRatio || 1.5), useCORS: true, allowTaint: false, logging: false, width: exportRoot.scrollWidth, height: exportRoot.scrollHeight, windowWidth: exportRoot.scrollWidth, windowHeight: exportRoot.scrollHeight, scrollX: 0, scrollY: 0, onclone: (clonedDocument) => {
         const clonedRoot = clonedDocument.querySelector('[data-exam-os-pdf-export]') as HTMLElement | null
-        if (clonedRoot) { clonedRoot.style.opacity = '1'; clonedRoot.style.left = '0'; clonedRoot.style.top = '0' }
+        if (clonedRoot) { clonedRoot.style.opacity = '1'; clonedRoot.style.visibility = 'visible'; clonedRoot.style.left = '0'; clonedRoot.style.top = '0' }
       } })
       if (canvas.width === 0 || canvas.height === 0) throw new Error('The PDF canvas was empty.')
       pdf.setProperties({ title: title.trim() || 'ExamOS workspace', subject: `${unit?.subject.name ?? 'Subject'} workspace` })
@@ -985,7 +1006,9 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       const contentWidth = pageWidth - margin * 2
       const contentHeight = pageHeight - margin * 2
       const sliceHeight = Math.max(1, Math.floor(canvas.width * (contentHeight / contentWidth)))
+      const pageCount = Math.ceil(canvas.height / sliceHeight)
       for (let offsetY = 0, page = 0; offsetY < canvas.height; offsetY += sliceHeight, page += 1) {
+        setExportPhase(`Composing page ${page + 1} of ${pageCount}`)
         if (page > 0) pdf.addPage()
         const slice = document.createElement('canvas')
         slice.width = canvas.width
@@ -995,11 +1018,15 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         context.fillStyle = '#ffffff'
         context.fillRect(0, 0, slice.width, slice.height)
         context.drawImage(canvas, 0, offsetY, canvas.width, slice.height, 0, 0, slice.width, slice.height)
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.94), 'JPEG', margin, margin, contentWidth, (slice.height / slice.width) * contentWidth, undefined, 'FAST')
+        pdf.addImage(slice.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, (slice.height / slice.width) * contentWidth, undefined, 'FAST')
+        setExportProgress(58 + Math.round(((page + 1) / pageCount) * 36))
+        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
       }
+      setExportProgress(98); setExportPhase('Finalizing your download')
       pdf.save(filename)
-      exportRoot.remove()
-    } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.') }
+      setExportProgress(100); setExportPhase('Your PDF is ready')
+      await new Promise((resolve) => setTimeout(resolve, 450))
+    } catch (error) { setExportError(error instanceof Error ? error.message : 'The PDF could not be prepared.'); setExportPhase('We could not finish the PDF') }
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
@@ -1080,6 +1107,19 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         <ColorMenu onText={(value) => applyColor('foreColor', value)} onHighlight={(value) => applyColor('hiliteColor', value)} />
       </>}
     </div>
+
+    {exporting && <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/35 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pdf-export-title" aria-describedby="pdf-export-status">
+      <div ref={exportDialogRef} className="w-full max-w-md overflow-hidden rounded-2xl border border-white/60 bg-background/95 p-6 shadow-2xl shadow-slate-950/20">
+        <div className="mb-6 flex items-start gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25"><FileText className="h-6 w-6" /></div>
+          <div className="min-w-0"><h2 id="pdf-export-title" className="text-lg font-semibold tracking-tight">Creating your PDF</h2><p id="pdf-export-status" className="mt-1 text-sm text-muted-foreground">{exportPhase}</p></div>
+          <span className="ml-auto shrink-0 text-2xl font-semibold tabular-nums tracking-tight text-primary">{exportProgress}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true"><div ref={exportFillRef} className="h-full rounded-full bg-gradient-to-r from-primary via-blue-500 to-cyan-400" style={{ width: 0 }} /></div>
+        <div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />Preserving tables, equations, spacing, and page breaks</div>
+        {exportProgress === 100 && <div className="mt-4 flex items-center gap-2 text-sm font-medium text-emerald-600"><CircleCheck className="h-4 w-4" />Download started</div>}
+      </div>
+    </div>}
 
     {slash && slashItems.length > 0 && <SlashMenu items={slashItems} index={Math.min(slash.index, slashItems.length - 1)} top={slash.top} bottom={slash.bottom} left={slash.left} onPick={pickSlash} onHover={(index) => setSlash((current) => current && { ...current, index })} />}
   </main>

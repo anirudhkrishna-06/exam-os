@@ -10,6 +10,7 @@ import { cacheAside } from '@/lib/redis/cache'
 import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
 import { invalidateUserCaches } from '@/lib/redis/invalidation'
+import { getUnitSharedContent } from '@/services/sharing.service'
 
 async function ownedSession(userId: string, sessionId: string) {
   return db.query.studySessions.findFirst({
@@ -91,7 +92,7 @@ export async function getSubjectKnowledge(userId: string, subjectId: string) {
       db.query.unitLinks.findMany({ where: and(eq(unitLinks.userId, userId), eq(unitLinks.unitId, unit.id)) }),
       db.query.unitKeywords.findMany({ where: and(eq(unitKeywords.userId, userId), eq(unitKeywords.unitId, unit.id)) }),
     ])
-    return { ...unit, notes: [...unitOwnedNotes.map((item) => ({ ...item, source: 'unit' as const })), ...notes.map((item) => ({ ...item, source: 'session' as const }))], links: [...unitOwnedLinks.map((item) => ({ ...item, source: 'unit' as const })), ...links.map((item) => ({ ...item, source: 'session' as const }))], keywords: [...unitOwnedKeywords.map((item) => ({ ...item, source: 'unit' as const })), ...keywords.map((item) => ({ ...item, source: 'session' as const }))] }
+    return { ...unit, notes: [...unitOwnedNotes.map((item) => ({ ...item, source: 'unit' as const })), ...notes.map((item) => ({ ...item, source: 'session' as const }))], links: [...unitOwnedLinks.map((item) => ({ ...item, source: 'unit' as const })), ...links.map((item) => ({ ...item, source: 'session' as const }))], keywords: [...unitOwnedKeywords.map((item) => ({ ...item, source: 'unit' as const })), ...keywords.map((item) => ({ ...item, source: 'session' as const }))], shared: await getUnitSharedContent(userId, unit.id) }
   }))
   return { ...subject, units: result }
   })

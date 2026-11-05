@@ -26,6 +26,7 @@ import {
   X,
   ChevronLeft,
   Search,
+  Share2,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -52,6 +53,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { label: 'Subjects', href: '/subjects', icon: BookOpen },
       { label: 'Seasons', href: '/seasons', icon: CalendarDays },
+      { label: 'Share Box', href: '/share-box', icon: Share2 },
     ],
   },
   {

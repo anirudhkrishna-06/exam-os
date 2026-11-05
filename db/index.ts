@@ -198,6 +198,7 @@ import * as sessionHistorySchema from './schema/session-history'
 import * as knowledgeSchema from './schema/knowledge'
 import * as revisionDismissalsSchema from './schema/revision-dismissals'
 import * as unitKnowledgeSchema from './schema/unit-knowledge'
+import * as sharingSchema from './schema/sharing'
 
 const schema = {
   ...usersSchema,
@@ -216,6 +217,7 @@ const schema = {
   ...knowledgeSchema,
   ...revisionDismissalsSchema,
   ...unitKnowledgeSchema,
+  ...sharingSchema,
   // relations
   usersRelations,
   authSessionsRelations,

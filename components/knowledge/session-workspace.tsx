@@ -8,6 +8,7 @@ import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, Exter
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
+import { ShareSessionDialog } from '@/components/sharing/share-session-dialog'
 import katex from 'katex'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -1038,6 +1039,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       <div className="flex items-center gap-3">
         <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>
         <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>
+        <ShareSessionDialog sessionId={workspace.session.id} />
         <SaveIndicator state={saveState} />
         {exportError && <span role="alert" className="text-xs text-destructive">{exportError}</span>}
       </div>

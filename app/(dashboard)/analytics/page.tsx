@@ -19,7 +19,7 @@ import { ReadinessCard } from '@/components/analytics/readiness-card'
 export const instant = false
 
 export const metadata = {
-  title: 'Analytics & Insights | ExamOS',
+  title: 'Analytics & Insights | paramaa... padi da',
 }
 
 export default async function AnalyticsPage() {

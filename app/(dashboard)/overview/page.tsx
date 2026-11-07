@@ -19,7 +19,7 @@ import { todayDateString } from '@/lib/date/utils'
 export const instant = false
 
 export const metadata = {
-  title: 'Dashboard | ExamOS',
+  title: 'Overview | paramaa... padi da',
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {

@@ -34,3 +34,17 @@ export function todayDateString(timeZone = 'Asia/Kolkata'): string {
   return `${values.year}-${values.month}-${values.day}`
 }
 
+export function selectNextExam<T extends { examDate: string }>(
+  exams: T[],
+  now = new Date(),
+  timeZone = 'Asia/Kolkata',
+): T | null {
+  const today = todayDateString(timeZone)
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(now)
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
+  const beforeExamCutoff = hour < 10
+  return exams.find((exam) => exam.examDate > today || (exam.examDate === today && beforeExamCutoff)) ?? null
+}
+

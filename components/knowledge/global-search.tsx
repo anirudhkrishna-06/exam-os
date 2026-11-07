@@ -246,7 +246,7 @@ export function GlobalSearch() {
           overlayClassName="search-dialog-overlay bg-background/45 backdrop-blur-md"
           className="top-[14vh] max-w-[min(680px,calc(100vw-2rem))] translate-y-0 gap-0 overflow-hidden rounded-full border-0 bg-transparent p-0 shadow-none data-[state=open]:animate-none data-[state=closed]:animate-none"
         >
-          <DialogTitle className="sr-only">Search ExamOS knowledge</DialogTitle>
+          <DialogTitle className="sr-only">Search paramaa... padi da knowledge</DialogTitle>
           <DialogDescription className="sr-only">
             Search notes, links, and keywords. Use the arrow keys to navigate results.
           </DialogDescription>

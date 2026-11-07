@@ -45,11 +45,12 @@ async function getOrCreateSnapshot(snapshot: SharedContentSnapshot) {
   return (await db.query.sharedContent.findFirst({ where: eq(sharedContent.contentHash, hash) }))!
 }
 
-export async function createSessionShare(senderUserId: string, sessionId: string, email: string) {
+export async function createSessionShare(senderUserId: string, sessionId: string, email: string, recipientUserId?: string) {
   const normalizedEmail = email.trim().toLowerCase()
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) throw new Error('Enter a valid email address')
+  if (recipientUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(recipientUserId)) throw new Error('Invalid recipient')
+  if (!recipientUserId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) throw new Error('Enter a valid email address')
   const [recipient, session] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.email, normalizedEmail), columns: { id: true, name: true, email: true } }),
+    db.query.users.findFirst({ where: recipientUserId ? eq(users.id, recipientUserId) : eq(users.email, normalizedEmail), columns: { id: true, name: true, email: true } }),
     db.query.studySessions.findFirst({ where: and(eq(studySessions.id, sessionId), eq(studySessions.userId, senderUserId)), with: { activity: { with: { unit: true } } } }),
   ])
   if (!session) throw new Error('Session not found')

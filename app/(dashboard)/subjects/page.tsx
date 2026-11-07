@@ -12,7 +12,7 @@ import { formatDate, daysUntil } from '@/lib/date/utils'
 export const instant = false
 
 export const metadata = {
-  title: 'Subjects | ExamOS',
+  title: 'Subjects | paramaa... padi da',
 }
 
 export default async function SubjectsPage() {

@@ -6,7 +6,7 @@ import { SettingsView } from '@/components/settings/settings-view'
 export const instant = false
 
 export const metadata = {
-  title: 'Settings | ExamOS',
+  title: 'Settings | paramaa... padi da',
 }
 
 export default async function SettingsPage() {

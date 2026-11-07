@@ -15,6 +15,7 @@ export const redisKeys = {
   dashboard: (userId: string, seasonId: string, name: string) => `${prefix(userId)}:dashboard:${name}:${seasonId}`,
   revision: (userId: string, seasonId: string, today: string) => `${prefix(userId)}:revision:${seasonId}:${today}`,
   knowledge: (userId: string, name: string, id: string) => `${prefix(userId)}:knowledge:${name}:${id}`,
+  userSearchRateLimit: (userId: string) => `${prefix(userId)}:rate-limit:user-search`,
 };
 
 export const userKeyPattern = (userId: string) => `${prefix(userId)}:*`;

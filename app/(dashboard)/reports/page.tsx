@@ -12,7 +12,7 @@ import { ExamReadinessReport } from '@/components/reports/exam-readiness'
 export const instant = false
 
 export const metadata = {
-  title: 'Exam Readiness Report | ExamOS',
+  title: 'Exam Readiness Report | paramaa... padi da',
 }
 
 export default async function ReportsPage() {

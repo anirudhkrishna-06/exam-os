@@ -13,7 +13,7 @@ import { SubjectKnowledgeHub } from '@/components/knowledge/subject-knowledge-hu
 export const instant = false
 
 export const metadata = {
-  title: 'Subject Syllabus & Progress | ExamOS',
+  title: 'Subject Syllabus & Progress | paramaa... padi da',
 }
 
 export default async function SubjectPage({

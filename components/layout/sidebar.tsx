@@ -9,6 +9,7 @@ import {
   useTransition,
 } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import gsap from 'gsap'
 import {
@@ -19,7 +20,6 @@ import {
   Clock,
   Settings,
   LogOut,
-  GraduationCap,
   BarChart3,
   FileText,
   Menu,
@@ -150,7 +150,7 @@ function NavLink({
         onBlur={() => hover(false)}
         aria-current={active ? 'page' : undefined}
         className={cn(
-          'flex h-10 items-center gap-3 overflow-hidden rounded-md pl-4 pr-3 text-sm font-medium outline-none',
+          'flex h-10 items-center justify-start gap-3 overflow-hidden rounded-md pl-4 pr-3 text-sm font-medium outline-none',
           'transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-ring/60',
           active
             ? 'text-primary-foreground'
@@ -247,7 +247,10 @@ function NavList({
   }, [activeHref])
 
   return (
-    <nav aria-label="Main" className={cn('flex-1 px-3 py-4', scroll && 'overflow-y-auto')}>
+    <nav
+      aria-label="Main"
+      className={cn('sidebar-nav-scroll min-h-0 min-w-0 flex-1 overflow-x-hidden px-3 py-4', scroll && 'overflow-y-auto')}
+    >
       <div ref={rootRef} className="relative">
         <div
           ref={pillRef}
@@ -296,16 +299,19 @@ function UserFooter({
   onLogout: () => void
 }) {
   return (
-    <div className="border-t p-3">
-      <div className="flex items-center gap-3 py-2 pl-2.5 pr-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold ring-2 ring-primary/20">
-          {userName?.[0]?.toUpperCase() ?? '?'}
-        </div>
-        <div data-collapsible className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-medium">{userName ?? 'User'}</p>
-          <p className="text-[11px] text-muted-foreground">Signed in</p>
-        </div>
+    <div className="shrink-0 border-t p-3">
+      <div className="flex items-center gap-3 overflow-hidden py-2 pl-2.5 pr-3">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold ring-2 ring-primary/20">
+        {userName?.[0]?.toUpperCase() ?? '?'}
       </div>
+      <div
+        data-collapsible
+        className="w-40 shrink-0 whitespace-nowrap leading-tight"
+      >
+        <p className="truncate text-sm font-medium">{userName ?? 'User'}</p>
+        <p className="text-[11px] text-muted-foreground">Signed in</p>
+      </div>
+    </div>
       <div className="group/item relative mt-1">
         <Button
           variant="ghost"
@@ -397,7 +403,7 @@ export function Sidebar({ userName }: SidebarProps) {
 
     if (instant) {
       gsap.set(aside, { width: collapsed ? WIDTH_COLLAPSED : WIDTH_EXPANDED })
-      gsap.set(labels, { autoAlpha: collapsed ? 0 : 1, x: collapsed ? -10 : 0 })
+      gsap.set(labels, { autoAlpha: collapsed ? 0 : 1 })
       gsap.set(collapsedOnly, { autoAlpha: collapsed ? 1 : 0 })
       gsap.set(chevronRef.current, { rotate: collapsed ? 180 : 0 })
       return
@@ -406,15 +412,13 @@ export function Sidebar({ userName }: SidebarProps) {
     const tl = gsap.timeline({ defaults: { overwrite: 'auto' } })
 
     if (collapsed) {
-      // Labels leave first, then the rail narrows.
-      tl.to(labels, { autoAlpha: 0, x: -10, duration: t(0.22), ease: 'power2.in', stagger: t(0.012) }, 0)
-      tl.to(aside, { width: WIDTH_COLLAPSED, duration: t(0.55), ease: 'power3.inOut' }, t(0.08))
-      tl.to(collapsedOnly, { autoAlpha: 1, duration: t(0.3) }, t(0.35))
+      tl.to(aside, { width: WIDTH_COLLAPSED, duration: t(0.55), ease: 'power3.inOut' }, 0)
+      tl.to(labels, { autoAlpha: 0, duration: t(0.3), ease: 'power1.in' }, 0)
+      tl.to(collapsedOnly, { autoAlpha: 1, duration: t(0.25) }, t(0.3))
     } else {
-      // Rail widens first, then labels arrive in sequence.
       tl.to(collapsedOnly, { autoAlpha: 0, duration: t(0.15) }, 0)
       tl.to(aside, { width: WIDTH_EXPANDED, duration: t(0.55), ease: 'power3.inOut' }, 0)
-      tl.to(labels, { autoAlpha: 1, x: 0, duration: t(0.35), ease: 'power3.out', stagger: t(0.015) }, t(0.3))
+      tl.to(labels, { autoAlpha: 1, duration: t(0.35), ease: 'power2.out' }, t(0.25))
     }
     tl.to(chevronRef.current, { rotate: collapsed ? 180 : 0, duration: t(0.5), ease: 'back.out(1.6)' }, 0)
 
@@ -511,12 +515,9 @@ export function Sidebar({ userName }: SidebarProps) {
 
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card p-4 md:hidden">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/30">
-            <GraduationCap className="size-[18px]" />
-          </div>
-          <span className="text-base font-bold tracking-tight">ExamOS</span>
-        </div>
+          <Link href="/overview" className="flex min-w-0 items-center" aria-label="paramaa... padi da home">
+            <Image src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-8 w-auto max-w-[170px] object-contain" />
+          </Link>
         <Button
           variant="ghost"
           size="sm"
@@ -565,15 +566,10 @@ export function Sidebar({ userName }: SidebarProps) {
 
         {/* Header */}
         <div className="relative flex h-[68px] shrink-0 items-center border-b px-3">
-          <div className="flex items-center gap-3 pl-2">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-md shadow-primary/30">
-              <GraduationCap className="size-5" />
-            </div>
-            <div data-collapsible className="min-w-0 leading-tight">
-              <p className="whitespace-nowrap text-base font-bold tracking-tight">ExamOS</p>
-              <p className="whitespace-nowrap text-[11px] text-muted-foreground">Exam preparation</p>
-            </div>
-          </div>
+            <Link href="/overview" className="relative flex h-10 min-w-0 flex-1 items-center overflow-hidden pl-2" aria-label="paramaa... padi da home">
+              <Image data-collapsible src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-11 w-auto max-w-[220px] object-contain" />
+              <Image data-collapsed-only src="/logo_collapsed.png" alt="paramaa... padi da" width={326} height={358} priority className="invisible absolute left-[26px] top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 object-contain opacity-0" />
+            </Link>
 
           {/* Expand / hide handle sitting on the border */}
           <button
@@ -591,8 +587,8 @@ export function Sidebar({ userName }: SidebarProps) {
         </div>
 
         {/* Search (full field when open, icon when collapsed) */}
-        <div className="relative shrink-0 px-3 pt-3">
-          <div data-collapsible className="overflow-hidden">
+        <div className="relative shrink-0 overflow-hidden px-3 pt-3">
+          <div data-collapsible className="w-[240px] overflow-hidden">
             <GlobalSearch />
           </div>
           <button
@@ -600,13 +596,13 @@ export function Sidebar({ userName }: SidebarProps) {
             data-collapsed-only
             onClick={toggle}
             aria-label="Expand sidebar to search"
-            className="invisible absolute left-3 top-3 flex h-10 w-[52px] items-center justify-center rounded-md border bg-background/60 text-muted-foreground opacity-0 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
+            className="invisible absolute left-3 top-3 flex h-10 w-[52px] items-center justify-center rounded-full border bg-background/60 text-muted-foreground opacity-0 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <Search className="size-[18px]" />
+            <Search className="size-[13px]" />
           </button>
         </div>
 
-        <NavList activeHref={activeHref} />
+        <NavList activeHref={activeHref} scroll />
 
         <UserFooter userName={userName} pending={isPending} onLogout={handleLogout} />
       </aside>

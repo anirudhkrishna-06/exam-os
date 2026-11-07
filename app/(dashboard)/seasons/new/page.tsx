@@ -2,7 +2,7 @@ import { SeasonForm } from '@/components/seasons/season-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata = {
-  title: 'New season | ExamOS',
+  title: 'New season | paramaa... padi da',
 }
 
 export default function NewSeasonPage() {

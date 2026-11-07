@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 export const instant = false
 
 export const metadata = {
-  title: 'Setup your schedule | ExamOS',
+  title: 'Setup your schedule | paramaa... padi da',
 }
 
 export default async function SetupPage() {

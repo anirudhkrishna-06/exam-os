@@ -1,8 +1,9 @@
 import { RegisterForm } from '@/components/auth/register-form'
+import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export const metadata = {
-  title: 'Create account | ExamOS',
+  title: 'Create account | paramaa... padi da',
 }
 
 export default function RegisterPage() {
@@ -10,13 +11,13 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight">ExamOS</h1>
-          <p className="text-sm text-muted-foreground mt-1">Intelligent exam preparation</p>
+          <Image src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="mx-auto h-12 w-auto" />
+          <p className="text-sm text-muted-foreground mt-1">Focused exam preparation</p>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>Create your account</CardTitle>
-            <CardDescription>Get started with ExamOS in seconds</CardDescription>
+            <CardDescription>Get started in seconds</CardDescription>
           </CardHeader>
           <CardContent>
             <RegisterForm />

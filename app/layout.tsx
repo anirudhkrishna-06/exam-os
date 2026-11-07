@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Exam OS",
+  title: "paramaa... padi da",
   description: "Your personal exam preparation planner",
 };
 

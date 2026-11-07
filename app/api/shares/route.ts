@@ -9,6 +9,6 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const user = await requireAuth(); const body = await request.json()
-    return Response.json(await createSessionShare(user.id, String(body.sessionId ?? ''), String(body.email ?? '')), { status: 201 })
+    return Response.json(await createSessionShare(user.id, String(body.sessionId ?? ''), String(body.email ?? ''), body.recipientUserId ? String(body.recipientUserId) : undefined), { status: 201 })
   } catch (error) { const message = error instanceof Error ? error.message : 'Failed'; return Response.json({ error: message }, { status: message === 'Unauthorized' ? 401 : 400 }) }
 }

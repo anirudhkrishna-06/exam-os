@@ -11,7 +11,7 @@ import { formatDate } from '@/lib/date/utils'
 export const instant = false
 
 export const metadata = {
-  title: 'Seasons | ExamOS',
+  title: 'Seasons | paramaa... padi da',
 }
 
 export default async function SeasonsPage() {

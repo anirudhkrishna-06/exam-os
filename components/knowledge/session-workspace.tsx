@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Clipboa
 import Link from 'next/link'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
-import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink } from 'lucide-react'
+import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -38,6 +38,7 @@ type BlockId = 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'todo' | 'quo
 type ActiveState = { bold: boolean; italic: boolean; underline: boolean; strike: boolean; list: 'ul' | 'ol' | 'todo' | null }
 type BubbleState = { x: number; y: number; visible: boolean; linkMode: boolean }
 type SlashState = { query: string; index: number; top: number; bottom: number; left: number }
+type OutlineHeading = { id: string; text: string; level: 1 | 2 | 3 }
 
 const labels: Record<string, string> = { theory_1: 'Theory 1', theory_2: 'Theory 2', numericals: 'Numericals', previous_papers: 'Past papers', revision: 'Revision' }
 const categories = ['ChatGPT', 'Question Papers', 'Study Material', 'Documentation', 'External Resources', 'Other']
@@ -401,6 +402,9 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   const [stuck, setStuck] = useState(false)
   const [active, setActive] = useState<ActiveState>({ bold: false, italic: false, underline: false, strike: false, list: null })
   const [blockType, setBlockType] = useState('p')
+  const [outlineOpen, setOutlineOpen] = useState(false)
+  const [outline, setOutline] = useState<OutlineHeading[]>([])
+  const [activeHeading, setActiveHeading] = useState<string | null>(null)
   const [bubble, setBubble] = useState<BubbleState>({ x: 0, y: 0, visible: false, linkMode: false })
   const [linkUrl, setLinkUrl] = useState('')
   const [slash, setSlash] = useState<SlashState | null>(null)
@@ -467,6 +471,43 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
     hydratedRef.current = true
     try { document.execCommand('defaultParagraphSeparator', false, 'p') } catch { /* unsupported */ }
   }, [initial.note.content])
+
+  /* ---------- live document outline (desktop only) */
+  useEffect(() => {
+    const root = editorRef.current
+    if (!root) return
+
+    const refreshOutline = () => {
+      const next: OutlineHeading[] = []
+      root.querySelectorAll<HTMLElement>('h1,h2,h3').forEach((heading, index) => {
+        const id = `workspace-heading-${index}`
+        heading.id = id
+        heading.classList.add('scroll-mt-24')
+        const text = (heading.textContent ?? '').trim()
+        if (text) next.push({ id, text, level: Number(heading.tagName.slice(1)) as 1 | 2 | 3 })
+      })
+      setOutline((current) => JSON.stringify(current) === JSON.stringify(next) ? current : next)
+      setActiveHeading((current) => current && next.some((heading) => heading.id === current) ? current : next[0]?.id ?? null)
+    }
+
+    refreshOutline()
+    const observer = new MutationObserver(refreshOutline)
+    observer.observe(root, { childList: true, subtree: true, characterData: true })
+    const onScroll = () => {
+      const headings = Array.from(root.querySelectorAll<HTMLElement>('h1,h2,h3'))
+      const current = headings.filter((heading) => heading.getBoundingClientRect().top <= 150).at(-1)
+      if (current) setActiveHeading(current.id)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { observer.disconnect(); window.removeEventListener('scroll', onScroll) }
+  }, [content])
+
+  function jumpToHeading(id: string) {
+    const heading = editorRef.current?.querySelector<HTMLElement>(`#${CSS.escape(id)}`)
+    if (!heading) return
+    heading.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' })
+    setActiveHeading(id)
+  }
 
   /* ---------- entrance animation */
   useEffect(() => {
@@ -986,7 +1027,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         pre { white-space: pre-wrap; background: #f3f3f3; border: 1px solid #ddd; padding: 10px; }
         a { text-decoration: underline; }
         img { max-width: 100%; }
-      </style><div style="border-bottom:1px solid #cfcfcf;padding-bottom:12px;margin-bottom:18px"><img src="/favicon.ico" alt="ExamOS" style="width:28px;height:28px;vertical-align:middle;margin-right:8px"><span style="font-size:13px">ExamOS · Workspace export</span><h1>${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:13px">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p>No notes yet.</p>'}${resourceList}${keywordList}</section>`
+      </style><div style="border-bottom:1px solid #cfcfcf;padding-bottom:12px;margin-bottom:18px"><img src="/logo_parama.png" alt="paramaa... padi da" style="width:92px;height:auto;vertical-align:middle;margin-right:8px"><span style="font-size:13px">paramaa... padi da · Workspace export</span><h1>${escapeHtml(title.trim() || 'Untitled workspace')}</h1><div style="font-size:13px">${escapeHtml(unit?.subject.name ?? 'Subject')} · ${escapeHtml(unit?.name ?? 'Unit')} · ${escapeHtml(labels[activity ?? ''] ?? 'Study session')} · ${new Date().toLocaleDateString('en-IN')}</div></div><section>${content || '<p>No notes yet.</p>'}${resourceList}${keywordList}</section>`
       document.body.appendChild(exportRoot)
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
       if ('fonts' in document) await document.fonts.ready
@@ -1000,7 +1041,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         if (clonedRoot) { clonedRoot.style.opacity = '1'; clonedRoot.style.visibility = 'visible'; clonedRoot.style.left = '0'; clonedRoot.style.top = '0' }
       } })
       if (canvas.width === 0 || canvas.height === 0) throw new Error('The PDF canvas was empty.')
-      pdf.setProperties({ title: title.trim() || 'ExamOS workspace', subject: `${unit?.subject.name ?? 'Subject'} workspace` })
+      pdf.setProperties({ title: title.trim() || 'paramaa... padi da workspace', subject: `${unit?.subject.name ?? 'Subject'} workspace` })
       const margin = 18
       const pageWidth = 210
       const pageHeight = 297
@@ -1061,7 +1102,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
             <ToolbarButton label="Undo (Ctrl+Z)" onClick={() => format('undo')}><Undo2 className="h-4 w-4" /></ToolbarButton>
             <ToolbarButton label="Redo (Ctrl+Shift+Z)" onClick={() => format('redo')}><Redo2 className="h-4 w-4" /></ToolbarButton>
             <span className="mx-1 h-5 w-px bg-border" />
-            <select aria-label="Text style" value={blockType} onMouseDown={rememberSelection} onChange={(event) => format('formatBlock', event.target.value)} className="h-8 rounded-md border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground outline-none transition hover:bg-muted">
+            <select aria-label="Text style" value={blockType} onMouseDown={rememberSelection} onChange={(event) => format('formatBlock', event.target.value)} className="h-8 max-w-[8rem] rounded-md border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground outline-none transition hover:bg-muted">
               {blockTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
             <span className="mx-1 h-5 w-px bg-border" />
@@ -1090,6 +1131,21 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
         <Card className="p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Keywords</h2><Tag className="h-4 w-4 text-muted-foreground" /></div><div className="flex flex-wrap gap-2">{workspace.keywords.map((item) => <PopIn key={item.id} className="inline-flex"><button onClick={(event) => removeAnimated(event.currentTarget, () => deleteKeyword(item.id))} title="Remove keyword" className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary transition hover:bg-destructive/10 hover:text-destructive active:scale-95">{item.keyword} ×</button></PopIn>)}{!workspace.keywords.length && <span className="text-xs text-muted-foreground">No keywords yet</span>}</div><Input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={addKeyword} placeholder="Add keyword · Enter" className="mt-3 h-9 text-xs" /></Card>
         <Card className="p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Links</h2><Link2 className="h-4 w-4 text-muted-foreground" /></div><div className="space-y-2">{workspace.links.map((link) => <PopIn key={link.id} className="group flex items-center gap-2"><a href={link.url} target="_blank" rel="noreferrer" className="min-w-0 flex-1 truncate text-sm text-primary hover:underline" title={link.url}>{link.nickname}</a><span className="hidden text-[10px] text-muted-foreground sm:block">{link.category}</span><button onClick={(event) => removeAnimated(event.currentTarget, () => deleteLink(link.id))} aria-label={`Remove ${link.nickname}`} className="opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"><Trash2 className="h-3.5 w-3.5 text-muted-foreground transition hover:text-destructive" /></button></PopIn>)}{!workspace.links.length && !linkOpen && <p className="text-xs text-muted-foreground">Keep useful resources close.</p>}</div>{linkOpen ? <form ref={linkFormRef} onSubmit={addLink} className="-m-1 mt-3 space-y-2 overflow-hidden p-1"><Input name="nickname" placeholder="Name" required className="h-8 text-xs" /><Input name="url" type="url" placeholder="https://…" required className="h-8 text-xs" /><select name="category" defaultValue="Other" className="h-8 w-full rounded-md border bg-background px-2 text-xs">{categories.map((item) => <option key={item}>{item}</option>)}</select><div className="flex gap-2"><Button size="sm" type="submit">Save link</Button><Button size="sm" type="button" variant="ghost" onClick={() => setLinkOpen(false)}>Cancel</Button></div></form> : <Button variant="outline" size="sm" className="mt-3 w-full" onClick={() => setLinkOpen(true)}><Plus className="mr-1 h-3.5 w-3.5" />Add link</Button>}</Card>
       </aside>
+    </div>
+
+    <div className="fixed right-5 top-1/2 z-40 hidden -translate-y-1/2 xl:block">
+      <div className={`origin-right transition-all duration-200 ${outlineOpen ? 'mb-2 scale-100 opacity-100' : 'pointer-events-none absolute right-0 top-0 scale-95 opacity-0'}`} aria-hidden={!outlineOpen}>
+        <div className="w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+          <div className="mb-2 flex items-center justify-between gap-3 px-1">
+            <div><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">In this note</p><p className="mt-0.5 text-sm font-medium">Document outline</p></div>
+            <button type="button" onClick={() => setOutlineOpen(false)} aria-label="Close document outline" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>
+          </div>
+          <nav aria-label="Document outline" className="max-h-[min(55vh,32rem)] space-y-0.5 overflow-y-auto pr-1">
+            {outline.length ? outline.map((heading) => <button key={heading.id} type="button" onClick={() => jumpToHeading(heading.id)} className={`block w-full truncate rounded-md py-1.5 text-left text-xs transition-colors ${heading.level === 1 ? 'font-semibold' : heading.level === 2 ? 'pl-3' : 'pl-6'} ${activeHeading === heading.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{heading.text}</button>) : <p className="px-1 py-3 text-xs text-muted-foreground">Add headings to build an outline.</p>}
+          </nav>
+        </div>
+      </div>
+      <button type="button" onClick={() => setOutlineOpen((current) => !current)} aria-label={outlineOpen ? 'Close document outline' : 'Open document outline'} aria-expanded={outlineOpen} className="flex h-10 items-center gap-2 rounded-full border bg-card/95 px-3 text-xs font-medium text-muted-foreground shadow-lg backdrop-blur transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><ListTree className="h-4 w-4" />{outline.length > 0 && <span>{outline.length}</span>}</button>
     </div>
 
     {/* Floating toolbar: follows the selection, so formatting never needs a trip to the top of the page */}

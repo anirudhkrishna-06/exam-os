@@ -12,7 +12,6 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <Image src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="mx-auto h-12 w-auto" />
-          <p className="text-sm text-muted-foreground mt-1">Focused exam preparation</p>
         </div>
         <Card>
           <CardHeader>

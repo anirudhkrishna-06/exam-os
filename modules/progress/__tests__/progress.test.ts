@@ -70,7 +70,7 @@ describe('Progress Modules', () => {
       ],
     })
 
-    // (100 * 25 + 0 * 25) / 50 = 50%
+    // Unit progress remains the factual weighted percentage.
     expect(unit.percentComplete).toBe(50)
   })
 
@@ -118,8 +118,8 @@ describe('Progress Modules', () => {
       ],
     })
 
-    // Unit 1 is 100%, Unit 2 is 0% -> Subject avg is 50%
-    expect(sub.percentComplete).toBe(50)
+    // Unit 1 is 100%, Unit 2 is 0% -> Subject avg is boosted from 50% to 59%.
+    expect(sub.percentComplete).toBe(59)
   })
 
   it('scales confidence by the amount of unit material evidenced', () => {
@@ -129,7 +129,7 @@ describe('Progress Modules', () => {
       unitConfidence: { u1: { ratedSessions: 1, averageRating: 4, estimatedSessions: 8 } },
     })
     expect(subject.units[0].percentComplete).toBe(10)
-    expect(subject.percentComplete).toBe(10)
+    expect(subject.percentComplete).toBe(18)
   })
 
   it('calculates season progress across subjects', () => {

@@ -68,7 +68,7 @@ export default async function SubjectPage({
                   {subject.name}
                 </h1>
                 <Badge variant={daysLeft <= 7 ? 'destructive' : 'secondary'} className="text-xs">
-                  {daysLeft === 0 ? 'Exam Today!' : `${daysLeft} days remaining`}
+                  {daysLeft < 0 ? 'Passed' : daysLeft === 0 ? 'Exam Today!' : `${daysLeft} days remaining`}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-0.5">

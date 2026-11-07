@@ -103,7 +103,7 @@ export default async function SubjectsPage() {
                       variant={days <= 7 ? 'destructive' : days <= 30 ? 'warning' : 'secondary'}
                       className="text-xs shrink-0"
                     >
-                      {days === 0 ? 'Today!' : `${days}d left`}
+                      {days < 0 ? 'Passed' : days === 0 ? 'Today!' : `${days}d left`}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">

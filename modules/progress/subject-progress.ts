@@ -4,7 +4,7 @@
 // ============================================================
 
 import type { SubjectProgress } from './types'
-import { calculateUnitProgress } from './unit-progress'
+import { boostProgressPercent, calculateUnitProgress } from './unit-progress'
 
 export function calculateSubjectProgress(subject: {
   subjectId: string
@@ -41,12 +41,13 @@ export function calculateSubjectProgress(subject: {
     return { ...calculateUnitProgress(u), percentComplete: Math.round((confidence.averageRating / 5) * coverage * 100) }
   })
 
-  const percentComplete =
+  const rawPercentComplete =
     unitProgressList.length > 0
       ? Math.round(
           unitProgressList.reduce((sum, u) => sum + u.percentComplete, 0) / unitProgressList.length,
         )
       : 0
+  const percentComplete = boostProgressPercent(rawPercentComplete)
 
   return {
     subjectId: subject.subjectId,

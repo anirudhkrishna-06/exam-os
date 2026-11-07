@@ -23,7 +23,7 @@ export async function invalidateUserCaches({ userId, seasonId, subjectId }: Inva
   const keys = [redisKeys.preferences(userId), redisKeys.scheduleSlots(userId), redisKeys.seasons(userId)];
   if (seasonId) {
     keys.push(redisKeys.season(userId, seasonId), redisKeys.subjects(userId, seasonId), redisKeys.progress(userId, seasonId));
-    for (const name of ['weekly', 'workload', 'status', 'distribution', 'readiness', 'plan-summary', 'active-plan']) {
+    for (const name of ['weekly', 'workload', 'status', 'distribution', 'readiness', 'readiness-v2', 'plan-summary', 'active-plan']) {
       keys.push(redisKeys.dashboard(userId, seasonId, name));
     }
   }

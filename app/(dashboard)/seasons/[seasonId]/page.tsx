@@ -124,7 +124,7 @@ export default async function SeasonPage({
                                   : ''
                               }
                             >
-                              {' '}· {days === 0 ? 'Today' : `${days}d left`}
+                              {' '}· {days < 0 ? 'Passed' : days === 0 ? 'Today' : `${days}d left`}
                             </span>
                           )}
                         </p>

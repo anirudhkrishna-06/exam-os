@@ -3,12 +3,12 @@ export function formatDate(date: string | Date): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function daysUntil(date: string): number {
-  const target = parseDateOnly(date)
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  target.setHours(0, 0, 0, 0)
-  return Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+export function daysUntil(date: string, timeZone = 'Asia/Kolkata'): number {
+  // Exam dates are date-only values. Compare date-only UTC values derived from
+  // the user's timezone so the result does not shift around server midnight.
+  const target = parseDateOnlyUtc(date)
+  const today = parseDateOnlyUtc(todayDateString(timeZone))
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 export function isDateInPast(date: string): boolean {
@@ -18,6 +18,11 @@ export function isDateInPast(date: string): boolean {
 export function parseDateOnly(date: string): Date {
   const [year, month, day] = date.split('-').map(Number)
   return new Date(year, month - 1, day)
+}
+
+function parseDateOnlyUtc(date: string): Date {
+  const [year, month, day] = date.split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
 }
 
 export function toDateInputValue(date: Date | string): string {

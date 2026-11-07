@@ -7,6 +7,16 @@
 import type { UnitProgress } from './types'
 import { calculateActivityProgress } from './activity-progress'
 
+/**
+ * Gives partial progress a little more visual momentum while preserving the
+ * meaningful endpoints: untouched is 0% and fully complete is 100%.
+ */
+export function boostProgressPercent(percent: number): number {
+  const clamped = Math.max(0, Math.min(100, percent))
+  if (clamped === 0 || clamped === 100) return clamped
+  return Math.round(Math.pow(clamped / 100, 0.75) * 100)
+}
+
 export function calculateUnitProgress(unit: {
   unitId: string
   unitNumber: number

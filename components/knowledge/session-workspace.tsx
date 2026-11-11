@@ -391,7 +391,7 @@ function SaveIndicator({ state }: { state: 'saved' | 'saving' | 'unsaved' }) {
 
 /* ------------------------------------------------------------------ main component */
 
-export function SessionWorkspace({ initial }: { initial: Workspace }) {
+export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { initial: Workspace; readOnly?: boolean; sharedBy?: string }) {
   const [workspace, setWorkspace] = useState(initial)
   const [title, setTitle] = useState(initial.note.title)
   const [content, setContent] = useState(initial.note.content)
@@ -537,9 +537,10 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   }, [workspace.session.id])
 
   useEffect(() => {
+    if (readOnly) return
     const timer = setTimeout(saveNow, 800)
     return () => clearTimeout(timer)
-  }, [title, content, saveNow])
+  }, [content, readOnly, saveNow, title])
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => { if (saveStateRef.current !== 'saved') { event.preventDefault(); event.returnValue = '' } }
@@ -599,6 +600,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
   }, [])
 
   const updateBubble = useCallback(() => {
+    if (readOnly) return
     const root = editorRef.current
     const selection = window.getSelection()
     if (bubbleRef.current?.contains(document.activeElement)) return
@@ -607,7 +609,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
     const rect = selection.getRangeAt(0).getBoundingClientRect()
     if (!rect.width && !rect.height) { hide(); return }
     positionBubble(rect)
-  }, [positionBubble])
+  }, [positionBubble, readOnly])
 
   useEffect(() => {
     let timer = 0
@@ -1076,21 +1078,21 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
     <style>{editorCss}</style>
 
     <div data-anim="top" className="mb-6 flex items-center justify-between gap-3">
-      <Link href={`/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />Planner</Link>
+      <Link href={readOnly ? `/subjects/${unit?.subject.id}#unit-${unit?.id}` : `/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />{readOnly ? 'Back to subject' : 'Planner'}</Link>
       <div className="flex items-center gap-3">
         <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>
         <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>
-        <ShareSessionDialog sessionId={workspace.session.id} />
-        <SaveIndicator state={saveState} />
+        {readOnly ? <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">Read-only shared workspace</span> : <><ShareSessionDialog sessionId={workspace.session.id} /><SaveIndicator state={saveState} /></>}
         {exportError && <span role="alert" className="text-xs text-destructive">{exportError}</span>}
       </div>
     </div>
 
     <header data-anim="header" className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link href={`/subjects/${unit?.subject.id}`} className="transition hover:text-foreground">{unit?.subject.name}</Link><span>/</span><Link href={`/units/${unit?.id}`} className="transition hover:text-foreground">Unit {unit?.unitNumber}</Link><span>/</span><span>{labels[activity ?? ''] ?? 'Study session'}</span></div>
-        <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{unit?.name ?? 'Session workspace'}</h1>
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link href={`/subjects/${unit?.subject.id}`} className="transition hover:text-foreground">{unit?.subject.name}</Link><span>/</span><Link href={`/units/${unit?.id}`} className="transition hover:text-foreground">Unit {unit?.unitNumber}</Link><span>/</span><span>{readOnly ? 'Shared material' : labels[activity ?? ''] ?? 'Study session'}</span></div>
+        <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{readOnly ? title : unit?.name ?? 'Session workspace'}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{new Date(`${workspace.session.scheduledDate}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+        {readOnly && sharedBy && <p className="mt-2 text-sm text-muted-foreground">Shared by <span className="font-medium text-foreground">{sharedBy}</span></p>}
       </div>
     </header>
 
@@ -1098,7 +1100,7 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
       <div ref={cardRef} data-anim="card" className="min-w-0">
         <Card className="border-border/70 shadow-sm">
           <div ref={sentinelRef} className="h-px w-full" aria-hidden />
-          <div className={`sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b bg-background/85 px-3 py-2 backdrop-blur-md transition-shadow duration-200 ${stuck ? 'shadow-md' : ''}`}>
+          {!readOnly && <div className={`sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b bg-background/85 px-3 py-2 backdrop-blur-md transition-shadow duration-200 ${stuck ? 'shadow-md' : ''}`}>
             <ToolbarButton label="Undo (Ctrl+Z)" onClick={() => format('undo')}><Undo2 className="h-4 w-4" /></ToolbarButton>
             <ToolbarButton label="Redo (Ctrl+Shift+Z)" onClick={() => format('redo')}><Redo2 className="h-4 w-4" /></ToolbarButton>
             <span className="mx-1 h-5 w-px bg-border" />
@@ -1118,14 +1120,14 @@ export function SessionWorkspace({ initial }: { initial: Workspace }) {
             <ToolbarButton label="Add link (Ctrl+K)" onClick={addInlineLink}><Link2 className="h-4 w-4" /></ToolbarButton>
             <ColorMenu onText={(value) => applyColor('foreColor', value)} onHighlight={(value) => applyColor('hiliteColor', value)} />
             <span className="ml-auto hidden items-center gap-1 text-xs text-muted-foreground md:flex">Type <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">/</kbd> for blocks</span>
-          </div>
-          <Input value={title} onChange={(event) => { setTitle(event.target.value); setSaveState('unsaved') }} placeholder="Untitled note" aria-label="Note title" className={`h-auto rounded-none border-0 border-b px-6 py-5 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`} />
-          <div ref={editorRef} contentEditable suppressContentEditableWarning spellCheck dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={handleEditorKeyDown} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onMouseDown={handleEditorMouseDown} onClick={handleEditorClick} onPaste={handlePaste} onInput={handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
-          <div className={`flex items-center justify-between rounded-b-xl border-t bg-muted/10 px-6 py-3 text-xs text-muted-foreground ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`}><span>Write freely. Changes save automatically.</span><span>{words} {words === 1 ? 'word' : 'words'} · {readingMinutes} min read</span></div>
+          </div>}
+          {readOnly ? <div className={`border-b px-6 py-5 text-xl font-semibold sm:px-10 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : ''}`}>{title}</div> : <Input value={title} onChange={(event) => { setTitle(event.target.value); setSaveState('unsaved') }} placeholder="Untitled note" aria-label="Note title" className={`h-auto rounded-none border-0 border-b px-6 py-5 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`} />}
+          <div ref={editorRef} contentEditable={!readOnly} suppressContentEditableWarning spellCheck={!readOnly} dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={readOnly ? undefined : handleEditorKeyDown} onKeyUp={readOnly ? undefined : rememberSelection} onMouseUp={readOnly ? undefined : rememberSelection} onMouseDown={readOnly ? undefined : handleEditorMouseDown} onClick={readOnly ? undefined : handleEditorClick} onPaste={readOnly ? undefined : handlePaste} onInput={readOnly ? undefined : handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
+          <div className={`flex items-center justify-between rounded-b-xl border-t bg-muted/10 px-6 py-3 text-xs text-muted-foreground ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`}><span>{readOnly ? 'Viewing shared material' : 'Write freely. Changes save automatically.'}</span><span>{words} {words === 1 ? 'word' : 'words'} · {readingMinutes} min read</span></div>
         </Card>
       </div>
 
-      <aside ref={asideRef} data-anim="side" className={`space-y-4 ${wideMode ? 'hidden' : 'xl:sticky xl:top-6'}`}>
+      <aside ref={asideRef} data-anim="side" className={`space-y-4 ${readOnly || wideMode ? 'hidden' : 'xl:sticky xl:top-6'}`}>
         {workspace.previous && <Card className="border-primary/20 bg-primary/[0.035] p-4 shadow-sm transition-shadow hover:shadow-md"><div className="flex items-center justify-between"><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Continue</p><ChevronDown className="h-4 w-4 text-primary" /></div><Link href={`/sessions/${workspace.previous.session.id}`} className="group mt-3 block rounded-lg transition hover:bg-primary/5"><p className="truncate text-sm font-medium">{workspace.previous.note?.title || 'Previous session'}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{workspace.previous.note ? plainPreview(workspace.previous.note.content).slice(0, 140) : 'Open your previous notes'}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">Open session <ExternalLink className="h-3 w-3 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span></Link></Card>}
         <details open className="rounded-xl border bg-card p-4 shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between font-semibold">Related sessions <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">{workspace.related?.length ?? 0}</span></summary><div className="mt-3 space-y-1">{workspace.related?.length ? workspace.related.map((item) => <Link key={item.session.id} href={`/sessions/${item.session.id}`} className="block rounded-lg px-2 py-2 transition hover:translate-x-0.5 hover:bg-muted"><span className="block text-xs font-medium">{labels[item.session.activity?.activityType ?? ''] ?? 'Study session'}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{item.note?.title || item.session.scheduledDate}</span></Link>) : <p className="pt-3 text-xs text-muted-foreground">Your related sessions will appear here.</p>}</div></details>
         <Card className="p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Keywords</h2><Tag className="h-4 w-4 text-muted-foreground" /></div><div className="flex flex-wrap gap-2">{workspace.keywords.map((item) => <PopIn key={item.id} className="inline-flex"><button onClick={(event) => removeAnimated(event.currentTarget, () => deleteKeyword(item.id))} title="Remove keyword" className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary transition hover:bg-destructive/10 hover:text-destructive active:scale-95">{item.keyword} ×</button></PopIn>)}{!workspace.keywords.length && <span className="text-xs text-muted-foreground">No keywords yet</span>}</div><Input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={addKeyword} placeholder="Add keyword · Enter" className="mt-3 h-9 text-xs" /></Card>

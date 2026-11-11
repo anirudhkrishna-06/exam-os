@@ -89,8 +89,8 @@ export async function createSessionShare(senderUserId: string, sessionId: string
 export async function getShareBox(userId: string) {
   await expireShares(userId)
   const [received, sent] = await Promise.all([
-    db.select({ id: sessionShares.id, status: sessionShares.status, createdAt: sessionShares.createdAt, expiresAt: sessionShares.expiresAt, senderName: users.name, senderEmail: users.email, title: sharedContent.content, sharedContentId: sharedContent.id })
-      .from(sessionShares).innerJoin(users, eq(users.id, sessionShares.senderUserId)).innerJoin(sharedContent, eq(sharedContent.id, sessionShares.sharedContentId))
+    db.select({ id: sessionShares.id, status: sessionShares.status, createdAt: sessionShares.createdAt, expiresAt: sessionShares.expiresAt, senderName: users.name, senderEmail: users.email, title: sharedContent.content, sharedContentId: sharedContent.id, importId: unitContentImports.id })
+      .from(sessionShares).innerJoin(users, eq(users.id, sessionShares.senderUserId)).innerJoin(sharedContent, eq(sharedContent.id, sessionShares.sharedContentId)).leftJoin(unitContentImports, eq(unitContentImports.shareId, sessionShares.id))
       .where(eq(sessionShares.recipientUserId, userId)).orderBy(desc(sessionShares.createdAt)),
     db.select({ id: sessionShares.id, status: sessionShares.status, createdAt: sessionShares.createdAt, expiresAt: sessionShares.expiresAt, recipientName: users.name, recipientEmail: users.email, title: sharedContent.content })
       .from(sessionShares).innerJoin(users, eq(users.id, sessionShares.recipientUserId)).innerJoin(sharedContent, eq(sharedContent.id, sessionShares.sharedContentId))
@@ -148,6 +148,31 @@ export async function removeImport(userId: string, importId: string) {
   const [removed] = await db.delete(unitContentImports).where(and(eq(unitContentImports.id, importId), eq(unitContentImports.userId, userId))).returning({ id: unitContentImports.id })
   if (!removed) throw new Error('Shared material not found')
   await invalidateUserCaches({ userId })
+}
+
+export async function getSharedImportWorkspace(userId: string, importId: string) {
+  const [item] = await db.select({
+    importId: unitContentImports.id, createdAt: unitContentImports.createdAt, status: sessionShares.status,
+    content: sharedContent.content, senderName: users.name, senderEmail: users.email,
+    unitId: units.id, unitName: units.name, unitNumber: units.unitNumber,
+    subjectId: subjects.id, subjectName: subjects.name,
+  }).from(unitContentImports)
+    .innerJoin(sessionShares, eq(sessionShares.id, unitContentImports.shareId))
+    .innerJoin(sharedContent, eq(sharedContent.id, unitContentImports.sharedContentId))
+    .innerJoin(users, eq(users.id, sessionShares.senderUserId))
+    .innerJoin(units, eq(units.id, unitContentImports.unitId))
+    .innerJoin(subjects, eq(subjects.id, unitContentImports.subjectId))
+    .where(and(eq(unitContentImports.id, importId), eq(unitContentImports.userId, userId), eq(sessionShares.status, 'imported')))
+    .limit(1)
+  if (!item) return null
+  const content = item.content
+  return {
+    session: { id: item.importId, scheduledDate: item.createdAt.toISOString().slice(0, 10), activity: { activityType: 'shared', unit: { id: item.unitId, name: item.unitName, unitNumber: item.unitNumber, subject: { id: item.subjectId, name: item.subjectName } } } },
+    note: { id: null, title: content.note?.title || content.title, content: content.note?.content || '' },
+    links: content.links.map((link, index) => ({ id: `${item.importId}-link-${index}`, ...link })),
+    keywords: content.keywords.map((keyword, index) => ({ id: `${item.importId}-keyword-${index}`, keyword })),
+    previous: null, related: [], sharedBy: item.senderName || item.senderEmail,
+  }
 }
 
 export async function getUnitSharedContent(userId: string, unitId: string) {

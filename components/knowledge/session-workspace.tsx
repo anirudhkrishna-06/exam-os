@@ -1084,15 +1084,15 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
-  return <main ref={rootRef} className={`mx-auto w-full bg-white px-4 py-5 text-slate-950 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
+  return <main ref={rootRef} className={`relative mx-auto w-full bg-white px-4 py-5 text-slate-950 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
     <style>{editorCss}</style>
-    {external && <Image src="/logo_parama.png" alt="Paramaa" width={144} height={48} priority className="fixed left-6 top-6 z-40 h-auto w-28 sm:left-10 sm:top-9 sm:w-36" />}
+    {external && <Image src="/logo_parama.png" alt="Paramaa" width={144} height={48} priority className="absolute right-6 top-6 z-40 h-auto w-28 sm:right-10 sm:top-9 sm:w-36" />}
 
     <div data-anim="top" className="mb-6 flex items-center justify-between gap-3">
       {!external ? <Link href={readOnly ? `/subjects/${unit?.subject.id}#unit-${unit?.id}` : `/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />{readOnly ? 'Back to subject' : 'Planner'}</Link> : <span />}
       <div className="flex items-center gap-3">
         {!external && <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>}
-        <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>
+        {!external && <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>}
         {external ? null : readOnly ? <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">Read-only shared workspace</span> : <><ShareSessionDialog sessionId={workspace.session.id} /><ExternalShareDialog sessionId={workspace.session.id} /><SaveIndicator state={saveState} /></>}
         {exportError && <span role="alert" className="text-xs text-destructive">{exportError}</span>}
       </div>

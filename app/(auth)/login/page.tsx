@@ -1,8 +1,12 @@
 import { LoginForm } from '@/components/auth/login-form'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { isRegistrationEnabled } from '@/services/app-settings.service'
 
-export default function LoginPage() {
+export const instant = false
+
+export default async function LoginPage() {
+  const registrationEnabled = await isRegistrationEnabled()
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
@@ -15,7 +19,7 @@ export default function LoginPage() {
             <CardDescription>Sign in to your account to continue</CardDescription>
           </CardHeader>
           <CardContent>
-            <LoginForm />
+            <LoginForm registrationEnabled={registrationEnabled} />
           </CardContent>
         </Card>
       </div>

@@ -199,6 +199,7 @@ import * as knowledgeSchema from './schema/knowledge'
 import * as revisionDismissalsSchema from './schema/revision-dismissals'
 import * as unitKnowledgeSchema from './schema/unit-knowledge'
 import * as sharingSchema from './schema/sharing'
+import * as appSettingsSchema from './schema/app-settings'
 
 const schema = {
   ...usersSchema,
@@ -218,6 +219,7 @@ const schema = {
   ...revisionDismissalsSchema,
   ...unitKnowledgeSchema,
   ...sharingSchema,
+  ...appSettingsSchema,
   // relations
   usersRelations,
   authSessionsRelations,

@@ -1,12 +1,19 @@
 import { RegisterForm } from '@/components/auth/register-form'
 import Image from 'next/image'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { isRegistrationEnabled } from '@/services/app-settings.service'
 
 export const metadata = {
   title: 'Create account | paramaa... padi da',
 }
 
-export default function RegisterPage() {
+export const instant = false
+
+export default async function RegisterPage() {
+  const registrationEnabled = await isRegistrationEnabled()
+  if (!registrationEnabled) {
+    return <div className="flex min-h-screen items-center justify-center bg-background p-4"><Card className="w-full max-w-sm"><CardHeader><CardTitle>Enrollment is closed</CardTitle><CardDescription>New Paramaa accounts are not being accepted right now.</CardDescription></CardHeader><CardContent><a href="/login" className="text-sm text-primary underline underline-offset-4">Return to login</a></CardContent></Card></div>
+  }
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">

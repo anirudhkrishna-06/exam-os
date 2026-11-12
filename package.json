@@ -16,7 +16,9 @@
     "test:phase2": "tsx --env-file=.env.local scripts/test-phase2.ts",
     "test:phase3": "tsx --env-file=.env.local scripts/test-phase3.ts",
     "test:redis": "tsx --env-file=.env.local scripts/test-redis-rest.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "enrollment:on": "tsx --env-file=.env.local scripts/set-registration.ts on",
+    "enrollment:off": "tsx --env-file=.env.local scripts/set-registration.ts off"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.3.1",

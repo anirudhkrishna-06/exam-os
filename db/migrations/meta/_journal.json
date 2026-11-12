@@ -64,6 +64,13 @@
       "when": 1794504337751,
       "tag": "0008_aspiring_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794507190125,
+      "tag": "0009_wise_skreet",
+      "breakpoints": true
     }
   ]
 }

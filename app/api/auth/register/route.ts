@@ -2,9 +2,13 @@ import { registerSchema } from '@/lib/validation/auth'
 import { registerUser } from '@/services/auth.service'
 import { createSession, setSessionCookie } from '@/lib/auth/session'
 import { checkRateLimit } from '@/lib/auth/rate-limit'
+import { isRegistrationEnabled } from '@/services/app-settings.service'
 
 export async function POST(request: Request) {
   try {
+    if (!(await isRegistrationEnabled())) {
+      return Response.json({ error: 'New enrollment is currently closed.' }, { status: 403 })
+    }
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1'
     const limit = checkRateLimit(`register:${ip}`, 10, 15 * 60 * 1000)
     if (!limit.allowed) {

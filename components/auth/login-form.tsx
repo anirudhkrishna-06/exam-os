@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
-export function LoginForm() {
+export function LoginForm({ registrationEnabled = true }: { registrationEnabled?: boolean }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -75,12 +75,10 @@ export function LoginForm() {
         {isPending ? 'Signing in…' : 'Sign in'}
       </Button>
 
-      <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
-        <Link href="/register" className="text-primary underline underline-offset-4 hover:opacity-80">
-          Sign up
-        </Link>
-      </p>
+      {registrationEnabled ? <p className="text-center text-sm text-muted-foreground">
+        Don&apos;t have an account?{' '}
+        <Link href="/register" className="text-primary underline underline-offset-4 hover:opacity-80">Sign up</Link>
+      </p> : <p className="text-center text-sm text-muted-foreground">New enrollment is currently closed.</p>}
     </form>
   )
 }

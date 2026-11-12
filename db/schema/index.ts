@@ -1,5 +1,6 @@
 // Re-export all schema with relations
 export { users } from './users'
+export { appSettings } from './app-settings'
 export { authSessions } from './sessions'
 export { userPreferences } from './user-preferences'
 export { dailySessionTemplates } from './daily-templates'

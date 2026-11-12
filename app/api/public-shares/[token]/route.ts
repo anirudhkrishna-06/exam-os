@@ -14,6 +14,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const body = await request.json().catch(() => ({})); const result = await verifyExternalShare(token, String(body.passcode ?? ''))
   if (!result) return Response.json({ error: 'The passcode is incorrect or this link is no longer available.' }, { status: 401, headers })
   const response = Response.json({ verified: true }, { headers })
-  response.headers.append('Set-Cookie', `paramaa_share_${token}=${result.sessionToken}; HttpOnly; ${process.env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Lax; Path=/s/${token}; Max-Age=28800`)
+  // The browser verifies through /api/public-shares/<token>, then fetches the
+  // snapshot through the same API route. A /s/<token> cookie path would not be
+  // sent to /api, so scope this token-specific cookie to the origin instead.
+  response.headers.append('Set-Cookie', `paramaa_share_${token}=${result.sessionToken}; HttpOnly; ${process.env.NODE_ENV === 'production' ? 'Secure; ' : ''}SameSite=Lax; Path=/; Max-Age=28800`)
   return response
 }

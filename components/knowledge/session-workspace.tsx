@@ -1146,7 +1146,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
       </aside>
     </div>
 
-    <div className="fixed right-5 top-1/2 z-40 hidden -translate-y-1/2 xl:block">
+    <div className={`fixed right-5 top-1/2 z-40 -translate-y-1/2 ${external ? 'block' : 'hidden xl:block'}`}>
       <div className={`origin-right transition-all duration-200 ${outlineOpen ? 'mb-2 scale-100 opacity-100' : 'pointer-events-none absolute right-0 top-0 scale-95 opacity-0'}`} aria-hidden={!outlineOpen}>
         <div className="w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border bg-card/95 p-3 shadow-xl backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 px-1">

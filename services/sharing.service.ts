@@ -1,17 +1,19 @@
 import 'server-only'
 
-import { createHash } from 'crypto'
-import { and, asc, desc, eq, lt, or, sql } from 'drizzle-orm'
+import { createHash, randomBytes } from 'crypto'
+import { and, asc, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm'
+import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { db } from '@/db'
 import { users } from '@/db/schema/users'
 import { studySessions } from '@/db/schema/study-sessions'
 import { sessionNotes, knowledgeLinks, sessionKeywords } from '@/db/schema/knowledge'
 import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
-import { sharedContent, sessionShares, unitContentImports, type SharedContentSnapshot } from '@/db/schema/sharing'
+import { sharedContent, sessionShares, unitContentImports, externalShares, externalShareSessions, type SharedContentSnapshot } from '@/db/schema/sharing'
 import { invalidateUserCaches } from '@/lib/redis/invalidation'
 
 const EXPIRY_DAYS = 30
+const EXTERNAL_SESSION_HOURS = 8
 
 function canonicalSnapshot(snapshot: SharedContentSnapshot) {
   return JSON.stringify({
@@ -24,6 +26,21 @@ function canonicalSnapshot(snapshot: SharedContentSnapshot) {
 
 function snapshotHash(snapshot: SharedContentSnapshot) {
   return createHash('sha256').update(canonicalSnapshot(snapshot)).digest('hex')
+}
+
+function sanitizeExternalHtml(value: string) {
+  return value
+    .replace(/<\/?(script|style|iframe|object|embed|svg)[^>]*>/gi, '')
+    .replace(/\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/\s+(?:href|src)\s*=\s*(["'])\s*javascript:[^"']*\1/gi, '')
+    .replace(/\s+(?:href|src)\s*=\s*javascript:[^\s>]+/gi, '')
+}
+
+function safeExternalUrl(value: string) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? value : ''
+  } catch { return '' }
 }
 
 function activeStatus(status: typeof sessionShares.$inferSelect.status) {
@@ -194,4 +211,76 @@ export async function cleanupUnusedSnapshots() {
       sql`not exists (select 1 from unit_content_imports where unit_content_imports.shared_content_id = ${sharedContent.id})`,
     ))
   })
+}
+
+function hashSecret(value: string) { return createHash('sha256').update(value).digest('hex') }
+
+async function snapshotForOwner(ownerUserId: string, sessionId: string) {
+  const session = await db.query.studySessions.findFirst({ where: and(eq(studySessions.id, sessionId), eq(studySessions.userId, ownerUserId)), with: { activity: { with: { unit: true } } } })
+  if (!session) throw new Error('Session not found')
+  const [note, links, keywords] = await Promise.all([
+    db.query.sessionNotes.findFirst({ where: eq(sessionNotes.sessionId, sessionId), columns: { title: true, content: true } }),
+    db.query.knowledgeLinks.findMany({ where: eq(knowledgeLinks.sessionId, sessionId), orderBy: [asc(knowledgeLinks.createdAt)], columns: { url: true, nickname: true, category: true } }),
+    db.query.sessionKeywords.findMany({ where: eq(sessionKeywords.sessionId, sessionId), orderBy: [asc(sessionKeywords.createdAt)], columns: { keyword: true } }),
+  ])
+  return { session, snapshot: { title: note?.title || `Session ${session.scheduledDate}`, note: note ? { title: note.title, content: sanitizeExternalHtml(note.content) } : null, links: links.filter((link) => safeExternalUrl(link.url)).map((link) => ({ ...link, url: safeExternalUrl(link.url) })), keywords: keywords.map((item) => item.keyword) } satisfies SharedContentSnapshot }
+}
+
+export async function createExternalShare(ownerUserId: string, sessionId: string, passcode: string, expiresAt?: string | null) {
+  if (!/^[A-Za-z0-9]{6,128}$/.test(passcode)) throw new Error('Passcodes must be 6–128 letters or numbers')
+  const expiry = expiresAt ? new Date(expiresAt) : null
+  if (expiry && (!Number.isFinite(expiry.getTime()) || expiry <= new Date())) throw new Error('Expiry must be in the future')
+  const { snapshot } = await snapshotForOwner(ownerUserId, sessionId)
+  const content = await getOrCreateSnapshot(snapshot)
+  const token = randomBytes(32).toString('base64url')
+  const [share] = await db.insert(externalShares).values({ ownerUserId, originalSessionId: sessionId, sharedContentId: content.id, tokenHash: hashSecret(token), passcodeHash: await hashPassword(passcode), expiresAt: expiry }).returning({ id: externalShares.id, expiresAt: externalShares.expiresAt })
+  return { id: share.id, token, expiresAt: share.expiresAt }
+}
+
+export async function listExternalShares(ownerUserId: string, sessionId: string) {
+  return db.select({ id: externalShares.id, sessionId: externalShares.originalSessionId, createdAt: externalShares.createdAt, updatedAt: externalShares.updatedAt, expiresAt: externalShares.expiresAt, revokedAt: externalShares.revokedAt, snapshotId: externalShares.sharedContentId })
+    .from(externalShares).where(and(eq(externalShares.ownerUserId, ownerUserId), eq(externalShares.originalSessionId, sessionId))).orderBy(desc(externalShares.createdAt))
+}
+
+export async function updateExternalShare(ownerUserId: string, shareId: string) {
+  const share = await db.query.externalShares.findFirst({ where: and(eq(externalShares.id, shareId), eq(externalShares.ownerUserId, ownerUserId), isNull(externalShares.revokedAt)) })
+  if (!share) throw new Error('External share not found')
+  const { snapshot } = await snapshotForOwner(ownerUserId, share.originalSessionId)
+  const content = await getOrCreateSnapshot(snapshot)
+  await db.update(externalShares).set({ sharedContentId: content.id, updatedAt: new Date() }).where(eq(externalShares.id, shareId))
+}
+
+export async function revokeExternalShare(ownerUserId: string, shareId: string, remove = false) {
+  const where = and(eq(externalShares.id, shareId), eq(externalShares.ownerUserId, ownerUserId))
+  const result = remove ? await db.delete(externalShares).where(where).returning({ id: externalShares.id }) : await db.update(externalShares).set({ revokedAt: new Date(), updatedAt: new Date() }).where(where).returning({ id: externalShares.id })
+  if (!result.length) throw new Error('External share not found')
+}
+
+export async function getExternalShare(token: string) {
+  if (!/^[A-Za-z0-9_-]{32,}$/.test(token)) return null
+  const [share] = await db.select({ id: externalShares.id, passcodeHash: externalShares.passcodeHash, expiresAt: externalShares.expiresAt, content: sharedContent.content })
+    .from(externalShares).innerJoin(sharedContent, eq(sharedContent.id, externalShares.sharedContentId))
+    .where(and(eq(externalShares.tokenHash, hashSecret(token)), isNull(externalShares.revokedAt))).limit(1)
+  if (!share || (share.expiresAt && share.expiresAt <= new Date())) return null
+  return share
+}
+
+export async function verifyExternalShare(token: string, passcode: string) {
+  const share = await getExternalShare(token)
+  if (!share || !(await verifyPassword(share.passcodeHash, passcode))) return null
+  const sessionToken = randomBytes(32).toString('base64url')
+  await db.insert(externalShareSessions).values({ shareId: share.id, sessionHash: hashSecret(sessionToken), expiresAt: new Date(Date.now() + EXTERNAL_SESSION_HOURS * 60 * 60 * 1000) })
+  return { shareId: share.id, sessionToken }
+}
+
+export async function getExternalSnapshot(token: string, sessionToken: string | undefined) {
+  if (!sessionToken) return null
+  const share = await getExternalShare(token)
+  if (!share) return null
+  const session = await db.query.externalShareSessions.findFirst({ where: and(eq(externalShareSessions.shareId, share.id), eq(externalShareSessions.sessionHash, hashSecret(sessionToken)), gt(externalShareSessions.expiresAt, new Date())) })
+  return session ? share.content : null
+}
+
+export async function cleanupExternalShareSessions() {
+  await db.delete(externalShareSessions).where(lt(externalShareSessions.expiresAt, new Date()))
 }

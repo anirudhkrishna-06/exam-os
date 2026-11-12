@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
 import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { ShareSessionDialog } from '@/components/sharing/share-session-dialog'
+import { ExternalShareDialog } from '@/components/sharing/external-share-dialog'
 import katex from 'katex'
 import { jsPDF } from 'jspdf'
 import html2canvas from 'html2canvas'
@@ -374,7 +376,8 @@ function SlashMenu({ items, index, top, bottom, left, onPick, onHover }: { items
 function PopIn({ children, className }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (ref.current && !prefersReducedMotion()) gsap.from(ref.current, { opacity: 0, scale: 0.85, duration: 0.35, ease: 'back.out(2)', clearProps: 'all' })
+    const frame = window.requestAnimationFrame(() => { if (ref.current && !prefersReducedMotion()) gsap.from(ref.current, { opacity: 0, scale: 0.85, duration: 0.35, ease: 'back.out(2)', clearProps: 'all' }) })
+    return () => window.cancelAnimationFrame(frame)
   }, [])
   return <div ref={ref} data-item className={className}>{children}</div>
 }
@@ -382,7 +385,8 @@ function PopIn({ children, className }: { children: ReactNode; className?: strin
 function SaveIndicator({ state }: { state: 'saved' | 'saving' | 'unsaved' }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (ref.current && !prefersReducedMotion()) gsap.fromTo(ref.current, { opacity: 0.35, y: -4 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' })
+    const frame = window.requestAnimationFrame(() => { if (ref.current && !prefersReducedMotion()) gsap.fromTo(ref.current, { opacity: 0.35, y: -4 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }) })
+    return () => window.cancelAnimationFrame(frame)
   }, [state])
   return <div ref={ref} className="flex items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
     {state === 'saving' ? <><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />Saving…</> : state === 'unsaved' ? <><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Unsaved</> : <><Check className="h-3.5 w-3.5 text-emerald-600" />Saved</>}
@@ -391,7 +395,7 @@ function SaveIndicator({ state }: { state: 'saved' | 'saving' | 'unsaved' }) {
 
 /* ------------------------------------------------------------------ main component */
 
-export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { initial: Workspace; readOnly?: boolean; sharedBy?: string }) {
+export function SessionWorkspace({ initial, readOnly = false, sharedBy, external = false }: { initial: Workspace; readOnly?: boolean; sharedBy?: string; external?: boolean }) {
   const [workspace, setWorkspace] = useState(initial)
   const [title, setTitle] = useState(initial.note.title)
   const [content, setContent] = useState(initial.note.content)
@@ -511,15 +515,18 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { init
 
   /* ---------- entrance animation */
   useEffect(() => {
-    if (prefersReducedMotion() || !rootRef.current) return
-    const ctx = gsap.context(() => {
-      gsap.timeline({ defaults: { ease: 'power3.out', clearProps: 'transform,opacity' } })
-        .from('[data-anim="top"]', { opacity: 0, y: -8, duration: 0.4 })
-        .from('[data-anim="header"] > div > *', { opacity: 0, y: 14, duration: 0.5, stagger: 0.07 }, '-=0.2')
-        .from('[data-anim="card"]', { opacity: 0, y: 24, duration: 0.6 }, '-=0.35')
-        .from('[data-anim="side"] > *', { opacity: 0, x: 18, duration: 0.5, stagger: 0.08 }, '-=0.45')
-    }, rootRef)
-    return () => ctx.revert()
+    let ctx: ReturnType<typeof gsap.context> | undefined
+    const frame = window.requestAnimationFrame(() => {
+      if (prefersReducedMotion() || !rootRef.current) return
+      ctx = gsap.context(() => {
+        gsap.timeline({ defaults: { ease: 'power3.out', clearProps: 'transform,opacity' } })
+          .from('[data-anim="top"]', { opacity: 0, y: -8, duration: 0.4 })
+          .from('[data-anim="header"] > div > *', { opacity: 0, y: 14, duration: 0.5, stagger: 0.07 }, '-=0.2')
+          .from('[data-anim="card"]', { opacity: 0, y: 24, duration: 0.6 }, '-=0.35')
+          .from('[data-anim="side"] > *', { opacity: 0, x: 18, duration: 0.5, stagger: 0.08 }, '-=0.45')
+      }, rootRef)
+    })
+    return () => { window.cancelAnimationFrame(frame); ctx?.revert() }
   }, [])
 
   /* ---------- autosave (debounced) + Ctrl/Cmd+S + leave warning */
@@ -624,8 +631,11 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { init
   useEffect(() => {
     const element = bubbleRef.current
     if (!element) return
-    if (prefersReducedMotion()) { gsap.set(element, { autoAlpha: bubble.visible ? 1 : 0 }); return }
-    gsap.to(element, { autoAlpha: bubble.visible ? 1 : 0, y: bubble.visible ? 0 : 8, scale: bubble.visible ? 1 : 0.96, duration: 0.18, ease: 'power2.out', overwrite: 'auto' })
+    const frame = window.requestAnimationFrame(() => {
+      if (prefersReducedMotion()) { gsap.set(element, { autoAlpha: bubble.visible ? 1 : 0 }); return }
+      gsap.to(element, { autoAlpha: bubble.visible ? 1 : 0, y: bubble.visible ? 0 : 8, scale: bubble.visible ? 1 : 0.96, duration: 0.18, ease: 'power2.out', overwrite: 'auto' })
+    })
+    return () => window.cancelAnimationFrame(frame)
   }, [bubble.visible])
 
   useEffect(() => {
@@ -1074,22 +1084,23 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { init
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
-  return <main ref={rootRef} className={`mx-auto w-full px-4 py-5 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
+  return <main ref={rootRef} className={`mx-auto w-full bg-white px-4 py-5 text-slate-950 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
     <style>{editorCss}</style>
+    {external && <Image src="/logo_parama.png" alt="Paramaa" width={144} height={48} priority className="fixed left-6 top-6 z-40 h-auto w-28 sm:left-10 sm:top-9 sm:w-36" />}
 
     <div data-anim="top" className="mb-6 flex items-center justify-between gap-3">
-      <Link href={readOnly ? `/subjects/${unit?.subject.id}#unit-${unit?.id}` : `/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />{readOnly ? 'Back to subject' : 'Planner'}</Link>
+      {!external ? <Link href={readOnly ? `/subjects/${unit?.subject.id}#unit-${unit?.id}` : `/planner/${workspace.session.scheduledDate}`} className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition hover:text-foreground"><ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-1" />{readOnly ? 'Back to subject' : 'Planner'}</Link> : <span />}
       <div className="flex items-center gap-3">
-        <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>
+        {!external && <button type="button" onClick={toggleWide} className="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition hover:bg-muted hover:text-foreground active:scale-95" title={wideMode ? 'Exit wide writing mode' : 'Expand writing space'}>{wideMode ? <Minimize2 className="h-4 w-4" /> : <Expand className="h-4 w-4" />}{wideMode ? 'Exit wide view' : 'Wide view'}</button>}
         <Button size="sm" variant="outline" onClick={() => void downloadPdf()} disabled={exporting}><Download className="mr-1.5 h-4 w-4" />{exporting ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Preparing…</> : 'Download PDF'}</Button>
-        {readOnly ? <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">Read-only shared workspace</span> : <><ShareSessionDialog sessionId={workspace.session.id} /><SaveIndicator state={saveState} /></>}
+        {external ? null : readOnly ? <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">Read-only shared workspace</span> : <><ShareSessionDialog sessionId={workspace.session.id} /><ExternalShareDialog sessionId={workspace.session.id} /><SaveIndicator state={saveState} /></>}
         {exportError && <span role="alert" className="text-xs text-destructive">{exportError}</span>}
       </div>
     </div>
 
     <header data-anim="header" className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link href={`/subjects/${unit?.subject.id}`} className="transition hover:text-foreground">{unit?.subject.name}</Link><span>/</span><Link href={`/units/${unit?.id}`} className="transition hover:text-foreground">Unit {unit?.unitNumber}</Link><span>/</span><span>{readOnly ? 'Shared material' : labels[activity ?? ''] ?? 'Study session'}</span></div>
+        {!external && <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><Link href={`/subjects/${unit?.subject.id}`} className="transition hover:text-foreground">{unit?.subject.name}</Link><span>/</span><Link href={`/units/${unit?.id}`} className="transition hover:text-foreground">Unit {unit?.unitNumber}</Link><span>/</span><span>{readOnly ? 'Shared material' : labels[activity ?? ''] ?? 'Study session'}</span></div>}
         <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{readOnly ? title : unit?.name ?? 'Session workspace'}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{new Date(`${workspace.session.scheduledDate}T12:00:00`).toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric' })}</p>
         {readOnly && sharedBy && <p className="mt-2 text-sm text-muted-foreground">Shared by <span className="font-medium text-foreground">{sharedBy}</span></p>}
@@ -1127,7 +1138,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy }: { init
         </Card>
       </div>
 
-      <aside ref={asideRef} data-anim="side" className={`space-y-4 ${readOnly || wideMode ? 'hidden' : 'xl:sticky xl:top-6'}`}>
+      <aside ref={asideRef} data-anim="side" className={`space-y-4 ${external || readOnly || wideMode ? 'hidden' : 'xl:sticky xl:top-6'}`}>
         {workspace.previous && <Card className="border-primary/20 bg-primary/[0.035] p-4 shadow-sm transition-shadow hover:shadow-md"><div className="flex items-center justify-between"><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">Continue</p><ChevronDown className="h-4 w-4 text-primary" /></div><Link href={`/sessions/${workspace.previous.session.id}`} className="group mt-3 block rounded-lg transition hover:bg-primary/5"><p className="truncate text-sm font-medium">{workspace.previous.note?.title || 'Previous session'}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{workspace.previous.note ? plainPreview(workspace.previous.note.content).slice(0, 140) : 'Open your previous notes'}</p><span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary">Open session <ExternalLink className="h-3 w-3 transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span></Link></Card>}
         <details open className="rounded-xl border bg-card p-4 shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between font-semibold">Related sessions <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">{workspace.related?.length ?? 0}</span></summary><div className="mt-3 space-y-1">{workspace.related?.length ? workspace.related.map((item) => <Link key={item.session.id} href={`/sessions/${item.session.id}`} className="block rounded-lg px-2 py-2 transition hover:translate-x-0.5 hover:bg-muted"><span className="block text-xs font-medium">{labels[item.session.activity?.activityType ?? ''] ?? 'Study session'}</span><span className="mt-1 block truncate text-[11px] text-muted-foreground">{item.note?.title || item.session.scheduledDate}</span></Link>) : <p className="pt-3 text-xs text-muted-foreground">Your related sessions will appear here.</p>}</div></details>
         <Card className="p-4 shadow-sm"><div className="mb-3 flex items-center justify-between"><h2 className="font-semibold">Keywords</h2><Tag className="h-4 w-4 text-muted-foreground" /></div><div className="flex flex-wrap gap-2">{workspace.keywords.map((item) => <PopIn key={item.id} className="inline-flex"><button onClick={(event) => removeAnimated(event.currentTarget, () => deleteKeyword(item.id))} title="Remove keyword" className="rounded-full bg-primary/10 px-3 py-1 text-xs text-primary transition hover:bg-destructive/10 hover:text-destructive active:scale-95">{item.keyword} ×</button></PopIn>)}{!workspace.keywords.length && <span className="text-xs text-muted-foreground">No keywords yet</span>}</div><Input value={keyword} onChange={(event) => setKeyword(event.target.value)} onKeyDown={addKeyword} placeholder="Add keyword · Enter" className="mt-3 h-9 text-xs" /></Card>

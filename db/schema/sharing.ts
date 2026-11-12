@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, timestamp, uuid, jsonb, varchar, index, unique } from 'drizzle-orm/pg-core'
+import { pgEnum, pgTable, timestamp, uuid, jsonb, varchar, index, unique, text } from 'drizzle-orm/pg-core'
 import { users } from './users'
 import { studySessions } from './study-sessions'
 import { subjects } from './subjects'
@@ -48,4 +48,33 @@ export const unitContentImports = pgTable('unit_content_imports', {
 }, (table) => [
   index('unit_content_imports_user_unit_idx').on(table.userId, table.unitId),
   index('unit_content_imports_snapshot_idx').on(table.sharedContentId),
+])
+
+// External shares are separate from registered-user shares. Only hashes of
+// the URL token and passcode are stored.
+export const externalShares = pgTable('external_shares', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ownerUserId: uuid('owner_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  originalSessionId: uuid('original_session_id').notNull().references(() => studySessions.id, { onDelete: 'cascade' }),
+  sharedContentId: uuid('shared_content_id').notNull().references(() => sharedContent.id, { onDelete: 'restrict' }),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+  passcodeHash: text('passcode_hash').notNull(),
+  expiresAt: timestamp('expires_at'),
+  revokedAt: timestamp('revoked_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  index('external_shares_owner_idx').on(table.ownerUserId),
+  index('external_shares_session_idx').on(table.originalSessionId),
+])
+
+export const externalShareSessions = pgTable('external_share_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  shareId: uuid('share_id').notNull().references(() => externalShares.id, { onDelete: 'cascade' }),
+  sessionHash: varchar('session_hash', { length: 64 }).notNull().unique(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('external_share_sessions_share_idx').on(table.shareId),
+  index('external_share_sessions_expiry_idx').on(table.expiresAt),
 ])

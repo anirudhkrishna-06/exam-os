@@ -138,8 +138,10 @@ const editorCss = `
 .session-editor tr:last-child td { border-bottom: 0; }
 .session-editor th:last-child, .session-editor td:last-child { border-right: 0; }
 .session-editor ::selection { background: rgba(35, 131, 226, 0.28); }
-.session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.7rem 0; text-align: center; }
+.session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.9rem 0; text-align: center; }
+.session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
+.session-editor [data-math='inline'] .katex { font-size: 1em; }
 `
 
 const prefersReducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -156,16 +158,17 @@ function inlineMarkdown(escaped: string) {
 }
 
 function mathHtml(value: string) {
-  // Some clipboard sources escape an already escaped TeX delimiter (\\[...\\]).
-  // Normalize only delimiter backslashes; TeX command backslashes are untouched.
+  // Clipboard/Markdown sources commonly double the display delimiters and escape
+  // subscripts for Markdown (for example C\_{in}). Normalize those wrappers
+  // without touching TeX commands such as \\frac or \\times.
   const normalized = value.replace(/\\{2,}(?=[()[\]])/g, '\\')
-  const pattern = /\\{1,2}\(([\s\S]+?)\\{1,2}\)|\\{1,2}\[([\s\S]+?)\\{1,2}\]|\$\$([\s\S]+?)\$\$/g
+  const pattern = /\\{1,2}\(([\s\S]*?)\\{1,2}\)|\\{1,2}\[([\s\S]*?)\\{1,2}\]|\$\$([\s\S]*?)\$\$|(?<!\\)\$([^$\n]+?)(?<!\\)\$/g
   let output = ''
   let cursor = 0
   for (const match of normalized.matchAll(pattern)) {
     const start = match.index ?? 0
     output += escapeHtml(normalized.slice(cursor, start))
-    const expression = (match[1] ?? match[2] ?? match[3] ?? '').trim()
+    const expression = (match[1] ?? match[2] ?? match[3] ?? match[4] ?? '').trim().replace(/\\([_^])/g, '$1')
     const display = Boolean(match[2] ?? match[3])
     output += `<span data-math="${display ? 'block' : 'inline'}" data-latex="${escapeHtml(expression)}">${katex.renderToString(expression, { displayMode: display, throwOnError: false })}</span>`
     cursor = start + match[0].length
@@ -204,12 +207,24 @@ function markdownTable(lines: string[]) {
 }
 
 function plainTextToHtml(text: string) {
-  const lines = text.replace(/\r/g, '').split('\n')
+  const displayBlocks: string[] = []
+  const markedText = text.replace(/\\{1,2}\[[\s\S]*?\\{1,2}\]|\$\$[\s\S]*?\$\$/g, (block) => {
+    const marker = `\uE000${displayBlocks.length}\uE001`
+    displayBlocks.push(block)
+    return marker
+  })
+  const lines = markedText.replace(/\r/g, '').split('\n')
   const output: string[] = []
   let index = 0
   while (index < lines.length) {
     const line = lines[index]
     const next = lines[index + 1] ?? ''
+    const displayMarker = /^\uE000(\d+)\uE001$/.exec(line.trim())
+    if (displayMarker) {
+      output.push(`<div class="math-block">${mathHtml(displayBlocks[Number(displayMarker[1])] ?? '')}</div>`)
+      index += 1
+      continue
+    }
     if (line.includes('|') && isTableSeparator(next)) {
       const tableLines = [line, next]
       index += 2

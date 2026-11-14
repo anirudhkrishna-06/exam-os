@@ -176,6 +176,27 @@ function mathHtml(value: string) {
   return output + escapeHtml(normalized.slice(cursor))
 }
 
+function containsMath(value: string) {
+  return /\\{1,2}[[(]|\\{1,2}\(|\$\$|(?<!\\)\$/.test(value)
+}
+
+function renderMathTextNodes(root: ParentNode) {
+  const documentRef = root.ownerDocument ?? document
+  const walker = documentRef.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  const textNodes: Text[] = []
+  let node: Node | null
+  while ((node = walker.nextNode())) textNodes.push(node as Text)
+
+  textNodes.forEach((textNode) => {
+    const value = textNode.nodeValue ?? ''
+    const parent = textNode.parentElement
+    if (!parent || parent.closest('code,pre,[data-math]') || !containsMath(value)) return
+    const wrapper = documentRef.createElement('span')
+    wrapper.innerHTML = mathHtml(value)
+    textNode.replaceWith(...Array.from(wrapper.childNodes))
+  })
+}
+
 function normalizeUrl(value: string) {
   const url = value.trim()
   return /^(https?:|mailto:|\/|#)/i.test(url) ? url : `https://${url}`
@@ -283,12 +304,7 @@ function normalizePastedHtml(html: string, text: string) {
     })
     if (tag === 'a') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noreferrer') }
   })
-  doc.body.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
-    if (element.querySelector('code,pre,[data-math]')) return
-    const source = element.textContent ?? ''
-    if (!/[\\$]/.test(source)) return
-    element.innerHTML = mathHtml(source)
-  })
+  renderMathTextNodes(doc.body)
   return doc.body.innerHTML || plainTextToHtml(text)
 }
 
@@ -474,11 +490,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     // Notes imported as plain text need the same Markdown/TeX conversion as pasted text.
     // Previously they were assigned directly to innerHTML, leaving tables and equations literal.
     legacy.innerHTML = /<[a-z][\s\S]*>/i.test(sourceContent) ? sourceContent : plainTextToHtml(sourceContent)
-    legacy.querySelectorAll('p,div,li,h1,h2,h3,blockquote,td,th').forEach((element) => {
-      if (element.querySelector('code,pre,[data-math]')) return
-      const source = element.textContent ?? ''
-      if (/[\\$]/.test(source)) element.innerHTML = mathHtml(source)
-    })
+    renderMathTextNodes(legacy)
     const nextContent = legacy.innerHTML
     editorRef.current.innerHTML = nextContent
     if (nextContent !== sourceContent) {

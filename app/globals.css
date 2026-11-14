@@ -143,6 +143,11 @@ body {
   pointer-events: none;
 }
 
+.session-editor .katex,
+.session-editor .katex * {
+  color: hsl(var(--foreground));
+}
+
 .session-editor h2 {
   margin: 1.5rem 0 0.5rem;
   font-size: 1.5rem;

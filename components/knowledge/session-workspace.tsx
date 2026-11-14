@@ -96,7 +96,7 @@ const blockTypeOptions = [
 ]
 
 const editorCss = `
-.session-editor { caret-color: currentColor; word-break: break-word; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.session-editor { caret-color: currentColor; color: hsl(var(--foreground)); word-break: break-word; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .session-editor:empty::before { content: attr(data-placeholder); color: color-mix(in srgb, currentColor 35%, transparent); pointer-events: none; }
 .session-editor > *:first-child { margin-top: 0; }
 .session-editor p { margin: 0.15rem 0; min-height: 1.75rem; }
@@ -123,8 +123,8 @@ const editorCss = `
 }
 .session-editor blockquote { border-left: 3px solid currentColor; padding: 0.15rem 0 0.15rem 1rem; margin: 0.6rem 0; }
 .session-editor blockquote[data-callout] {
-  position: relative; border: 0; border-radius: 0.65rem; padding: 0.9rem 1rem 0.9rem 2.9rem;
-  background: color-mix(in srgb, currentColor 6%, transparent);
+  position: relative; border: 1px solid hsl(var(--border)); border-radius: 0.65rem; padding: 0.9rem 1rem 0.9rem 2.9rem;
+  color: hsl(var(--foreground)); background: hsl(var(--accent));
 }
 .session-editor blockquote[data-callout]::before { content: '\\1F4A1'; position: absolute; left: 1rem; top: 0.85rem; font-size: 1.1rem; }
 .session-editor pre { background: color-mix(in srgb, currentColor 7%, transparent); border-radius: 0.6rem; padding: 0.9rem 1.1rem; margin: 0.6rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86rem; line-height: 1.65; white-space: pre-wrap; overflow-x: auto; }
@@ -132,15 +132,17 @@ const editorCss = `
 .session-editor a { text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; transition: text-decoration-color 0.15s ease, color 0.15s ease; cursor: text; }
 .session-editor a:hover { color: #2383e2; text-decoration-color: #2383e2; }
 .session-editor hr { border: 0; border-top: 1px solid color-mix(in srgb, currentColor 18%, transparent); margin: 1.4rem 0; }
-.session-editor table { border-collapse: separate; border-spacing: 0; width: 100%; max-width: 100%; margin: 1rem 0; overflow: hidden; border: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-radius: 0.65rem; font-size: 0.92rem; table-layout: fixed; }
-.session-editor th, .session-editor td { border-right: 1px solid color-mix(in srgb, currentColor 16%, transparent); border-bottom: 1px solid color-mix(in srgb, currentColor 16%, transparent); padding: 0.55rem 0.75rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-.session-editor th { background: color-mix(in srgb, currentColor 5%, transparent); font-weight: 600; }
+.session-editor table { border-collapse: separate; border-spacing: 0; width: 100%; max-width: 100%; margin: 1rem 0; overflow: hidden; border: 1px solid hsl(var(--border)); border-radius: 0.65rem; font-size: 0.92rem; table-layout: fixed; color: hsl(var(--foreground)); }
+.session-editor th, .session-editor td { border-right: 1px solid hsl(var(--border)); border-bottom: 1px solid hsl(var(--border)); padding: 0.55rem 0.75rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; color: inherit; }
+.session-editor th { background: hsl(var(--muted) / 0.7); font-weight: 600; }
 .session-editor tr:last-child td { border-bottom: 0; }
 .session-editor th:last-child, .session-editor td:last-child { border-right: 0; }
 .session-editor ::selection { background: rgba(35, 131, 226, 0.28); }
 .session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.9rem 0; text-align: center; }
 .session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
+.session-editor [data-math] { color: hsl(var(--foreground)); }
+.session-editor [data-math] .katex, .session-editor [data-math] .katex * { color: inherit; }
 .session-editor [data-math='inline'] .katex { font-size: 1em; }
 `
 

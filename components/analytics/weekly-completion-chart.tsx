@@ -50,6 +50,7 @@ export function WeeklyCompletionChart({ data }: WeeklyCompletionChartProps) {
                 contentStyle={{
                   backgroundColor: 'var(--background, #fff)',
                   borderColor: 'var(--border, #e5e7eb)',
+                  color: 'hsl(var(--foreground))',
                   borderRadius: '8px',
                   fontSize: '12px',
                 }}

@@ -137,7 +137,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-xs text-zinc-500 hover:bg-zinc-100"
+                    className="h-7 px-2 text-xs text-muted-foreground hover:bg-muted"
                     disabled={loading}
                     onClick={() => handleStatus('skipped')}
                     title="Skip Session"

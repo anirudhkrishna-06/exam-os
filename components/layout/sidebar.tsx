@@ -516,7 +516,8 @@ export function Sidebar({ userName }: SidebarProps) {
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center justify-between border-b bg-card p-4 md:hidden">
           <Link href="/overview" className="flex min-w-0 items-center" aria-label="paramaa... padi da home">
-            <Image src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-8 w-auto max-w-[170px] object-contain" />
+            <Image src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-8 w-auto max-w-[170px] object-contain dark:hidden" />
+            <Image src="/dark_theme.png" alt="paramaa... padi da" width={766} height={326} priority className="hidden h-8 w-auto max-w-[170px] object-contain dark:block" />
           </Link>
         <Button
           variant="ghost"
@@ -567,7 +568,8 @@ export function Sidebar({ userName }: SidebarProps) {
         {/* Header */}
         <div className="relative flex h-[68px] shrink-0 items-center border-b px-3">
             <Link href="/overview" className="relative flex h-10 min-w-0 flex-1 items-center overflow-hidden pl-2" aria-label="paramaa... padi da home">
-              <Image data-collapsible src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-11 w-auto max-w-[220px] object-contain" />
+              <Image data-collapsible src="/logo_parama.png" alt="paramaa... padi da" width={710} height={302} priority className="h-11 w-auto max-w-[220px] object-contain dark:hidden" />
+              <Image data-collapsible src="/dark_theme.png" alt="paramaa... padi da" width={766} height={326} priority className="hidden h-11 w-auto max-w-[220px] object-contain dark:block" />
               <Image data-collapsed-only src="/logo_collapsed.png" alt="paramaa... padi da" width={326} height={358} priority className="invisible absolute left-[26px] top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 object-contain opacity-0" />
             </Link>
 

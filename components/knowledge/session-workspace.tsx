@@ -1111,7 +1111,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
-  return <main ref={rootRef} className={`relative mx-auto w-full bg-white px-4 py-5 text-slate-950 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
+  return <main ref={rootRef} className={`relative mx-auto w-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
     <style>{editorCss}</style>
     {external && <Image src="/logo_parama.png" alt="Paramaa" width={144} height={48} priority className="absolute right-6 top-6 z-40 h-auto w-28 sm:right-10 sm:top-9 sm:w-36" />}
 
@@ -1206,8 +1206,8 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
       </>}
     </div>
 
-    {exporting && <div className="fixed inset-0 z-[100] grid place-items-center bg-slate-950/35 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pdf-export-title" aria-describedby="pdf-export-status">
-      <div ref={exportDialogRef} className="w-full max-w-md overflow-hidden rounded-2xl border border-white/60 bg-background/95 p-6 shadow-2xl shadow-slate-950/20">
+    {exporting && <div className="fixed inset-0 z-[100] grid place-items-center bg-foreground/35 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pdf-export-title" aria-describedby="pdf-export-status">
+      <div ref={exportDialogRef} className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-background/95 p-6 shadow-2xl shadow-foreground/20">
         <div className="mb-6 flex items-start gap-4">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25"><FileText className="h-6 w-6" /></div>
           <div className="min-w-0"><h2 id="pdf-export-title" className="text-lg font-semibold tracking-tight">Creating your PDF</h2><p id="pdf-export-status" className="mt-1 text-sm text-muted-foreground">{exportPhase}</p></div>

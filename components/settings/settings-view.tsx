@@ -9,6 +9,7 @@ import { Select } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Trash2, GripVertical, Clock, Globe, Save } from 'lucide-react'
+import { ThemeControls } from '@/components/theme/theme-controls'
 
 interface Slot {
   id: string
@@ -131,6 +132,16 @@ export function SettingsView({
           <AlertDescription>{success}</AlertDescription>
         </Alert>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Appearance</CardTitle>
+          <CardDescription>Choose how paramaa... padi da looks across your workspace.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ThemeControls />
+        </CardContent>
+      </Card>
 
       {/* Routine & Preferences */}
       <Card>

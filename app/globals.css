@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import 'katex/dist/katex.min.css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -27,50 +29,48 @@
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --background: 210 20% 98%;
+  --foreground: 222 32% 10%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 222 32% 10%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 240 5.9% 10%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 240 5.9% 10%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 240 5.9% 10%;
+  --popover-foreground: 222 32% 10%;
+  --primary: 344 74% 43%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 16% 93%;
+  --secondary-foreground: 222 32% 14%;
+  --muted: 210 16% 94%;
+  --muted-foreground: 215 16% 43%;
+  --accent: 345 45% 95%;
+  --accent-foreground: 344 74% 32%;
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 240 5.9% 10%;
+  --border: 215 18% 87%;
+  --input: 215 18% 82%;
+  --ring: 344 74% 43%;
   --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
-  }
+:root[data-theme='dark'] {
+  --background: 222 24% 7%;
+  --foreground: 210 20% 96%;
+  --card: 222 20% 10%;
+  --card-foreground: 210 20% 96%;
+  --popover: 222 20% 11%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 345 77% 62%;
+  --primary-foreground: 222 24% 7%;
+  --secondary: 222 16% 16%;
+  --secondary-foreground: 210 20% 94%;
+  --muted: 222 16% 15%;
+  --muted-foreground: 215 14% 67%;
+  --accent: 345 28% 19%;
+  --accent-foreground: 345 77% 76%;
+  --destructive: 0 68% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 14% 22%;
+  --input: 220 14% 25%;
+  --ring: 345 77% 62%;
 }
 
 * {
@@ -80,6 +80,36 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+/* Recharts renders SVG labels with its own default black fill. Keep chart text
+   readable when the workspace is dark without changing the data colors. */
+.recharts-cartesian-axis-tick-value,
+.recharts-label,
+.recharts-legend-item-text {
+  fill: hsl(var(--muted-foreground));
+}
+
+.recharts-tooltip-wrapper,
+.recharts-default-tooltip {
+  color: hsl(var(--foreground));
+}
+
+/* Imported/editor HTML can contain literal black or white colors. Normalize
+   only those extremes so ordinary pasted text remains readable in either mode. */
+.dark .session-editor [style*="color: black" i],
+.dark .session-editor [style*="color:#000" i],
+.dark .session-editor [style*="color: #000" i],
+.dark .session-editor [style*="rgb(0, 0, 0)" i] {
+  color: hsl(var(--foreground)) !important;
+}
+
+:root:not(.dark) .session-editor [style*="color: white" i],
+:root:not(.dark) .session-editor [style*="color:#fff" i],
+:root:not(.dark) .session-editor [style*="color: #fff" i],
+:root:not(.dark) .session-editor [style*="rgb(255, 255, 255)" i] {
+  color: hsl(var(--foreground)) !important;
 }
 
 .sidebar-nav-scroll {

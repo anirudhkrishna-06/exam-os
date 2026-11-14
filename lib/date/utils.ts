@@ -31,12 +31,33 @@ export function toDateInputValue(date: Date | string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-export function todayDateString(timeZone = 'Asia/Kolkata'): string {
+export function todayDateString(timeZone = 'Asia/Kolkata', now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
-  }).formatToParts(new Date())
+  }).formatToParts(now)
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
   return `${values.year}-${values.month}-${values.day}`
+}
+
+/**
+ * Exam records contain a date but no exam time. Treat an exam as upcoming on
+ * exam day only until the shared 10:00 local-time cutoff.
+ */
+export function isExamUpcoming(
+  examDate: string,
+  now = new Date(),
+  timeZone = 'Asia/Kolkata',
+  cutoffHour = 10,
+): boolean {
+  const today = todayDateString(timeZone, now)
+  if (examDate > today) return true
+  if (examDate < today) return false
+
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(now)
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
+  return hour < cutoffHour
 }
 
 export function selectNextExam<T extends { examDate: string }>(
@@ -44,12 +65,8 @@ export function selectNextExam<T extends { examDate: string }>(
   now = new Date(),
   timeZone = 'Asia/Kolkata',
 ): T | null {
-  const today = todayDateString(timeZone)
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone, hour: '2-digit', minute: '2-digit', hour12: false,
-  }).formatToParts(now)
-  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? 0)
-  const beforeExamCutoff = hour < 10
-  return exams.find((exam) => exam.examDate > today || (exam.examDate === today && beforeExamCutoff)) ?? null
+  return [...exams]
+    .filter((exam) => isExamUpcoming(exam.examDate, now, timeZone))
+    .sort((a, b) => a.examDate.localeCompare(b.examDate))[0] ?? null
 }
 

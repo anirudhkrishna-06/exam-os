@@ -14,7 +14,7 @@ import { TodaySessions, TodaySessionItem } from '@/components/dashboard/today-se
 import { SubjectProgressSection } from '@/components/dashboard/subject-progress'
 import { WorkloadOverview } from '@/components/dashboard/workload-overview'
 import { CurrentTaskOverview, OverviewTask } from '@/components/dashboard/current-task-overview'
-import { todayDateString } from '@/lib/date/utils'
+import { isExamUpcoming, todayDateString } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -106,7 +106,7 @@ export default async function OverviewPage() {
   }))
 
   const overviewTasks: OverviewTask[] = todaySessions.map((session) => ({ ...session, href: `/sessions/${session.id}` }))
-  const nextReadiness = readinessList[0]
+  const nextReadiness = readinessList.find((exam) => isExamUpcoming(exam.examDate))
   const nextExam = nextReadiness ? { subjectId: nextReadiness.subjectId, subjectName: nextReadiness.subjectName, color: nextReadiness.color, examDate: nextReadiness.examDate, daysRemaining: nextReadiness.daysRemaining, percentComplete: nextReadiness.percentComplete } : null
 
   return (

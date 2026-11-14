@@ -8,7 +8,7 @@ import { getSeasonProgress } from './progress.service'
 import { dailyCapacity } from '@/db/schema/daily-capacity'
 import { dailySessionTemplates } from '@/db/schema/daily-templates'
 import { eq, and, sql } from 'drizzle-orm'
-import { daysUntil, todayDateString } from '@/lib/date/utils'
+import { daysUntil, isExamUpcoming } from '@/lib/date/utils'
 import { cacheAside } from '@/lib/redis/cache'
 import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
@@ -46,11 +46,11 @@ export async function getExamReadiness(
 ): Promise<SubjectReadiness[]> {
   // Version this cache entry so the corrected next-exam ordering is visible
   // immediately instead of reusing the old list for its remaining TTL.
-  return cacheAside(redisKeys.dashboard(userId, seasonId, 'readiness-v2'), CACHE_TTL.dashboard, async () => {
+  return cacheAside(redisKeys.dashboard(userId, seasonId, 'readiness-v3'), CACHE_TTL.dashboard, async () => {
   const seasonProgress = await getSeasonProgress(userId, seasonId)
   if (!seasonProgress) return []
 
-  const today = todayDateString()
+  const now = new Date()
 
   const defaultTemplates = await db
     .select({
@@ -125,8 +125,8 @@ export async function getExamReadiness(
   // Keep past exams available to reports, but always place them after every
   // upcoming exam so the first item is genuinely the next exam.
   return readinessList.sort((a, b) => {
-    const aPast = a.examDate < today
-    const bPast = b.examDate < today
+    const aPast = !isExamUpcoming(a.examDate, now)
+    const bPast = !isExamUpcoming(b.examDate, now)
     if (aPast !== bPast) return aPast ? 1 : -1
     return a.examDate.localeCompare(b.examDate)
   })

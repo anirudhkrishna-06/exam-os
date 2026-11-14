@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { ChevronRight, Calendar } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { daysUntil, formatDate } from '@/lib/date/utils'
+import { daysUntil, formatDate, isExamUpcoming } from '@/lib/date/utils'
 import { getSubjectKnowledge } from '@/services/knowledge.service'
 import { SubjectKnowledgeHub } from '@/components/knowledge/subject-knowledge-hub'
 
@@ -34,6 +34,7 @@ export default async function SubjectPage({
   if (!subject) notFound()
 
   const daysLeft = daysUntil(subject.examDate)
+  const examUpcoming = isExamUpcoming(subject.examDate)
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
@@ -68,7 +69,7 @@ export default async function SubjectPage({
                   {subject.name}
                 </h1>
                 <Badge variant={daysLeft <= 7 ? 'destructive' : 'secondary'} className="text-xs">
-                  {daysLeft < 0 ? 'Passed' : daysLeft === 0 ? 'Exam Today!' : `${daysLeft} days remaining`}
+                  {!examUpcoming && daysLeft <= 0 ? 'Passed' : daysLeft === 0 ? 'Exam Today!' : `${daysLeft} days remaining`}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-0.5">

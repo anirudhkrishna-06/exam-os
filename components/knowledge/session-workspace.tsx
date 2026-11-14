@@ -96,7 +96,7 @@ const blockTypeOptions = [
 ]
 
 const editorCss = `
-.session-editor { caret-color: currentColor; word-break: break-word; }
+.session-editor { caret-color: currentColor; word-break: break-word; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 .session-editor:empty::before { content: attr(data-placeholder); color: color-mix(in srgb, currentColor 35%, transparent); pointer-events: none; }
 .session-editor > *:first-child { margin-top: 0; }
 .session-editor p { margin: 0.15rem 0; min-height: 1.75rem; }
@@ -1146,9 +1146,9 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
       </aside>
     </div>
 
-    <div className={`fixed right-5 top-1/2 z-40 -translate-y-1/2 ${external ? 'block' : 'hidden xl:block'}`}>
+    <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end xl:bottom-auto xl:right-5 xl:top-1/2 xl:-translate-y-1/2">
       <div className={`origin-right transition-all duration-200 ${outlineOpen ? 'mb-2 scale-100 opacity-100' : 'pointer-events-none absolute right-0 top-0 scale-95 opacity-0'}`} aria-hidden={!outlineOpen}>
-        <div className="w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border bg-card/95 p-3 shadow-xl backdrop-blur">
+          <div className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border bg-card/95 p-3 shadow-xl backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 px-1">
             <div><p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">In this note</p><p className="mt-0.5 text-sm font-medium">Document outline</p></div>
             <button type="button" onClick={() => setOutlineOpen(false)} aria-label="Close document outline" className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"><X className="h-4 w-4" /></button>

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { CalendarDays, ChevronRight, BookOpen, CalendarPlus, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { formatDate, daysUntil } from '@/lib/date/utils'
+import { formatDate, daysUntil, isExamUpcoming } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -90,6 +90,7 @@ export default async function SeasonPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {season.subjects.map((subject) => {
               const days = daysUntil(subject.examDate)
+                            const examUpcoming = isExamUpcoming(subject.examDate)
               const completedActivities = subject.units.flatMap((u) =>
                 u.unitActivities.filter((a) => a.status === 'completed' && a.enabled)
               ).length
@@ -124,7 +125,7 @@ export default async function SeasonPage({
                                   : ''
                               }
                             >
-                              {' '}· {days < 0 ? 'Passed' : days === 0 ? 'Today' : `${days}d left`}
+                              {' '}· {!examUpcoming && days <= 0 ? 'Passed' : days === 0 ? 'Today' : `${days}d left`}
                             </span>
                           )}
                         </p>

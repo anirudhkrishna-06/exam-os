@@ -7,7 +7,7 @@ import { BookOpen, Calendar, ChevronRight, Layers, Plus } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatDate, daysUntil } from '@/lib/date/utils'
+import { formatDate, daysUntil, isExamUpcoming } from '@/lib/date/utils'
 
 export const instant = false
 
@@ -81,6 +81,7 @@ export default async function SubjectsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {subjectsList.map((sub) => {
             const days = daysUntil(sub.examDate)
+            const examUpcoming = isExamUpcoming(sub.examDate)
             const completedUnits = sub.units.filter((u) => u.percentComplete >= 100).length
 
             return (
@@ -103,7 +104,7 @@ export default async function SubjectsPage() {
                       variant={days <= 7 ? 'destructive' : days <= 30 ? 'warning' : 'secondary'}
                       className="text-xs shrink-0"
                     >
-                      {days < 0 ? 'Passed' : days === 0 ? 'Today!' : `${days}d left`}
+                      {!examUpcoming && days <= 0 ? 'Passed' : days === 0 ? 'Today!' : `${days}d left`}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">

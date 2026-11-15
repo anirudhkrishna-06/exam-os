@@ -5,6 +5,7 @@ import { CalendarPlus, Check, Clock3 } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { todayDateString } from '@/lib/date/utils'
+import type { SessionCardData } from './session-card'
 
 type Activity = { id: string; activityType: string; enabled: boolean; status: string; completedSessions: number; estimatedSessions: number }
 type Unit = { id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Activity[] }
@@ -41,7 +42,7 @@ function nextActivity(unit?: Unit, preferredId?: string) {
 }
 
 export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subjects, slots, occupiedSlots = [], onAdded, prefill }: {
-  open: boolean; onOpenChange: (open: boolean) => void; seasonId: string; date: string; subjects: Subject[]; slots: Slot[]; occupiedSlots?: string[]; onAdded?: () => void; prefill?: { subjectId?: string; unitId?: string; activityId?: string }
+  open: boolean; onOpenChange: (open: boolean) => void; seasonId: string; date: string; subjects: Subject[]; slots: Slot[]; occupiedSlots?: string[]; onAdded?: (session: SessionCardData) => void; prefill?: { subjectId?: string; unitId?: string; activityId?: string }
 }) {
   const availableSlots = useMemo(() => slots.filter((slot) => slot.isEnabled !== false), [slots])
   const occupied = useMemo(() => new Set(occupiedSlots), [occupiedSlots])
@@ -99,7 +100,30 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
     })
     const data = await response.json(); setSaving(false)
     if (!response.ok) { setError(data.error ?? 'Could not add this session'); return }
-    onOpenChange(false); onAdded?.()
+    const created = data.session
+    const selectedActivity = unit?.unitActivities.find((activity) => activity.id === activityId)
+    if (created && selectedActivity && subject && unit) {
+      onAdded?.({
+        id: created.id,
+        slotName: created.slotName,
+        startTime: created.startTime,
+        endTime: created.endTime,
+        position: created.position,
+        status: created.status,
+        estimatedDurationMinutes: created.estimatedDurationMinutes,
+        activity: {
+          id: selectedActivity.id,
+          activityType: selectedActivity.activityType,
+          unit: {
+            id: unit.id,
+            unitNumber: unit.unitNumber,
+            name: unit.name,
+            subject: { id: subject.id, name: subject.name, color: subject.color, examDate: subject.examDate },
+          },
+        },
+      })
+    }
+    onOpenChange(false)
   }
 
   return <Dialog open={open} onOpenChange={onOpenChange}>

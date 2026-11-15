@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,6 +55,13 @@ export function DailyView({
   const [editorOpen, setEditorOpen] = useState(false)
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickPrefill, setQuickPrefill] = useState<{ subjectId?: string; unitId?: string; activityId?: string }>()
+  const [visibleSessions, setVisibleSessions] = useState(sessions)
+
+  useEffect(() => {
+    // Reconcile the optimistic day view with the server-authoritative refresh.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setVisibleSessions(sessions)
+  }, [sessions])
 
   // Navigation helpers
   const navigateDay = (offset: number) => {
@@ -83,17 +90,26 @@ export function DailyView({
 
   // Sessions map by slotName
   const sessionsBySlot = new Map<string, SessionCardData>()
-  for (const s of sessions) {
+  for (const s of visibleSessions) {
     sessionsBySlot.set(s.slotName, s)
   }
 
   const handleStatusChange = async (sessionId: string, newStatus: SessionCardData['status'], confidenceRating?: number) => {
+    const previous = visibleSessions.find((session) => session.id === sessionId)
+    if (previous) {
+      setVisibleSessions((current) => current.map((session) => session.id === sessionId
+        ? { ...session, status: newStatus, confidenceRating: confidenceRating ?? session.confidenceRating }
+        : session))
+    }
     const res = await fetch(`/api/sessions/${sessionId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus, confidenceRating }),
     })
-    if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? 'Could not save the session')
+    if (!res.ok) {
+      if (previous) setVisibleSessions((current) => current.map((session) => session.id === sessionId ? previous : session))
+      throw new Error((await res.json().catch(() => null))?.error ?? 'Could not save the session')
+    }
     router.refresh()
   }
 
@@ -142,7 +158,7 @@ export function DailyView({
           </span>
           <h2 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">{formattedDate}</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {isRestDay ? 'Rest day' : `${sessions.length} scheduled / target ${targetSessionCount} sessions`}
+            {isRestDay ? 'Rest day' : `${visibleSessions.length} scheduled / target ${targetSessionCount} sessions`}
           </p>
         </div>
 
@@ -321,7 +337,7 @@ export function DailyView({
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
       />
-      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={(open) => { setQuickAddOpen(open); if (!open) setQuickPrefill(undefined) }} seasonId={seasonId} date={date} subjects={subjects} slots={templates} occupiedSlots={sessions.map((session) => session.slotName)} prefill={quickPrefill} onAdded={() => router.refresh()} />}
+      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={(open) => { setQuickAddOpen(open); if (!open) setQuickPrefill(undefined) }} seasonId={seasonId} date={date} subjects={subjects} slots={templates} occupiedSlots={visibleSessions.map((session) => session.slotName)} prefill={quickPrefill} onAdded={(session) => { setVisibleSessions((current) => [...current, session]); router.refresh() }} />}
     </div>
   )
 }

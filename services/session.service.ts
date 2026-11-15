@@ -153,7 +153,11 @@ export async function updateSessionStatus(
     action: newStatus === 'completed' ? 'completed' : newStatus === 'skipped' ? 'skipped' : 'edited',
   })
 
-  await invalidateUserCaches({ userId, seasonId: session.seasonId })
+  // The database update is complete; cache cleanup can finish after the fast
+  // response so completing a session does not wait on Redis round trips.
+  void invalidateUserCaches({ userId, seasonId: session.seasonId }).catch((error) => {
+    console.error('[Redis] background session cache invalidation failed', error)
+  })
 
   return updated
 }

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SessionStatus } from './session-status'
-import { CheckCircle2, Clock, SkipForward, Edit2, BookOpen, AlertCircle, ArrowUpRight } from 'lucide-react'
+import { CheckCircle2, Clock, SkipForward, Edit2, BookOpen, AlertCircle, ArrowUpRight, Loader2 } from 'lucide-react'
 
 export interface SessionCardData {
   id: string
@@ -38,7 +38,7 @@ interface SessionCardProps {
   session: SessionCardData
   onStatusChange?: (sessionId: string, newStatus: SessionCardData['status'], confidenceRating?: number) => Promise<void>
   onEdit?: (session: SessionCardData) => void
-  onOpen?: (session: SessionCardData) => void
+  onOpen?: (session: SessionCardData) => void | Promise<void>
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -51,6 +51,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 export function SessionCard({ session, onStatusChange, onEdit, onOpen }: SessionCardProps) {
   const [loading, setLoading] = useState(false)
+  const [opening, setOpening] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [confidenceOpen, setConfidenceOpen] = useState(false)
   const [confidence, setConfidence] = useState(session.confidenceRating ?? 0)
   const [confidenceSaved, setConfidenceSaved] = useState(Boolean(session.confidenceRating))
@@ -61,11 +63,26 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
   const handleStatus = async (status: SessionCardData['status'], rating?: number) => {
     if (!onStatusChange) return
     setLoading(true)
+    setError(null)
     try {
       await onStatusChange(session.id, status, rating)
       if (status === 'completed' && rating !== undefined) setConfidenceSaved(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save this update')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const openWorkspace = async () => {
+    if (!onOpen || opening) return
+    setOpening(true)
+    setError(null)
+    try {
+      await onOpen(session)
+    } catch (err) {
+      setOpening(false)
+      setError(err instanceof Error ? err.message : 'Could not open the workspace')
     }
   }
 
@@ -102,6 +119,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
                 {activityType ? ACTIVITY_LABELS[activityType] || activityType : 'Study Activity'}
                 {' '}({session.estimatedDurationMinutes} mins)
               </p>
+              {error && <p role="alert" className="mt-2 max-w-xs text-xs text-destructive">{error}</p>}
               {session.completionNote && (
                 <p className="text-xs bg-muted/50 p-2 rounded mt-2 border text-muted-foreground italic">
                   &ldquo;{session.completionNote}&rdquo;
@@ -114,8 +132,8 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
               
               <div className="flex items-center gap-1 mt-1">
                 {onOpen && (
-                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" onClick={() => onOpen(session)} title="Open workspace">
-                    <ArrowUpRight className="mr-1 h-3.5 w-3.5" />Open
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-primary" disabled={opening} onClick={() => void openWorkspace()} title="Open workspace">
+                    {opening ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowUpRight className="mr-1 h-3.5 w-3.5" />}{opening ? 'Opening…' : 'Open'}
                   </Button>
                 )}
                 {session.status !== 'completed' && (

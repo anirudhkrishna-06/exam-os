@@ -466,7 +466,11 @@ export async function createManualSession(
     newStatus: 'scheduled',
     action: 'created',
   })
-  await invalidateUserCaches({ userId, seasonId: data.seasonId })
+  // The session is already committed. Refresh/invalidation is safe to finish
+  // in the background and keeps Quick Add responsive after the insert.
+  void invalidateUserCaches({ userId, seasonId: data.seasonId }).catch((error) => {
+    console.error('[Redis] background planner cache invalidation failed', error)
+  })
   return session
 }
 

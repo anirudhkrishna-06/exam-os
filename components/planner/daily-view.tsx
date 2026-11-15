@@ -321,7 +321,7 @@ export function DailyView({
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
       />
-      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={setQuickAddOpen} seasonId={seasonId} date={date} subjects={subjects} slots={templates} prefill={quickPrefill} onAdded={() => router.refresh()} />}
+      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={(open) => { setQuickAddOpen(open); if (!open) setQuickPrefill(undefined) }} seasonId={seasonId} date={date} subjects={subjects} slots={templates} occupiedSlots={sessions.map((session) => session.slotName)} prefill={quickPrefill} onAdded={() => router.refresh()} />}
     </div>
   )
 }

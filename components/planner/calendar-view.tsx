@@ -251,7 +251,7 @@ export function CalendarView({
           })}
         </div>
       </div>
-      {quickDate && <QuickSessionDialog open={!!quickDate} onOpenChange={(open) => !open && setQuickDate(null)} seasonId={seasonId} date={quickDate} subjects={subjects} slots={slots} onAdded={() => { setQuickDate(null); router.refresh() }} />}
+      {quickDate && <QuickSessionDialog open={!!quickDate} onOpenChange={(open) => !open && setQuickDate(null)} seasonId={seasonId} date={quickDate} subjects={subjects} slots={slots} occupiedSlots={(sessionsByDate[quickDate] ?? []).map((session) => session.slotName)} onAdded={() => { setQuickDate(null); router.refresh() }} />}
     </div>
   )
 }

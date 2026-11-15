@@ -96,6 +96,7 @@ export default async function DailyPlannerPage({
         }
         defaultSessionsPerDay={prefs?.defaultSessionsPerDay ?? 4}
         upcomingExams={seasonSubjects.map((subject) => ({
+          subjectId: subject.id,
           name: subject.name,
           examDate: subject.examDate,
           color: subject.color || '#3b82f6',

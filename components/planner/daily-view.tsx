@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SessionCard, type SessionCardData } from './session-card'
 import { SessionEditor } from './session-editor'
 import { DayCapacityEditor } from './day-capacity-editor'
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, Target, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, Target, Plus, BookOpen } from 'lucide-react'
 import { QuickSessionDialog } from './quick-session-dialog'
 import { todayDateString } from '@/lib/date/utils'
 
@@ -31,6 +31,7 @@ interface DailyViewProps {
   } | null
   defaultSessionsPerDay: number
   upcomingExams: Array<{
+    subjectId: string
     name: string
     examDate: string
     color: string
@@ -56,11 +57,21 @@ export function DailyView({
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [quickPrefill, setQuickPrefill] = useState<{ subjectId?: string; unitId?: string; activityId?: string }>()
   const [visibleSessions, setVisibleSessions] = useState(sessions)
+  const optimisticStatusRef = useRef(new Map<string, Partial<SessionCardData>>())
 
   useEffect(() => {
     // Reconcile the optimistic day view with the server-authoritative refresh.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setVisibleSessions(sessions)
+    // A refresh can briefly contain the old cached row while invalidation runs;
+    // keep the local mutation until the fresh response confirms it.
+    const mergedSessions = sessions.map((session) => {
+      const optimistic = optimisticStatusRef.current.get(session.id)
+      if (!optimistic) return session
+      const confirmed = optimistic.status === session.status
+        && (optimistic.confidenceRating === undefined || optimistic.confidenceRating === session.confidenceRating)
+      if (confirmed) optimisticStatusRef.current.delete(session.id)
+      return confirmed ? session : { ...session, ...optimistic }
+    })
+    setVisibleSessions(mergedSessions)
   }, [sessions])
 
   // Navigation helpers
@@ -96,9 +107,11 @@ export function DailyView({
 
   const handleStatusChange = async (sessionId: string, newStatus: SessionCardData['status'], confidenceRating?: number) => {
     const previous = visibleSessions.find((session) => session.id === sessionId)
+    const optimistic = { status: newStatus, confidenceRating: confidenceRating ?? previous?.confidenceRating }
+    optimisticStatusRef.current.set(sessionId, optimistic)
     if (previous) {
       setVisibleSessions((current) => current.map((session) => session.id === sessionId
-        ? { ...session, status: newStatus, confidenceRating: confidenceRating ?? session.confidenceRating }
+        ? { ...session, ...optimistic }
         : session))
     }
     const res = await fetch(`/api/sessions/${sessionId}/status`, {
@@ -107,8 +120,21 @@ export function DailyView({
       body: JSON.stringify({ status: newStatus, confidenceRating }),
     })
     if (!res.ok) {
+      optimisticStatusRef.current.delete(sessionId)
       if (previous) setVisibleSessions((current) => current.map((session) => session.id === sessionId ? previous : session))
       throw new Error((await res.json().catch(() => null))?.error ?? 'Could not save the session')
+    }
+    const updated = await res.json().catch(() => null)
+    if (updated?.status) {
+      optimisticStatusRef.current.set(sessionId, {
+        status: updated.status,
+        confidenceRating: updated.confidenceRating,
+        completionNote: updated.completionNote,
+        actualDurationMinutes: updated.actualDurationMinutes,
+      })
+      setVisibleSessions((current) => current.map((session) => session.id === sessionId
+        ? { ...session, status: updated.status, confidenceRating: updated.confidenceRating, completionNote: updated.completionNote, actualDurationMinutes: updated.actualDurationMinutes }
+        : session))
     }
     router.refresh()
   }
@@ -299,6 +325,9 @@ export function DailyView({
                           Other subjects stay light until this exam is safely behind you.
                         </p>
                       )}
+                      <Button size="sm" variant="outline" className="mt-3 h-8" onClick={() => router.push(`/subjects/${focusExam.subjectId}`)}>
+                        <BookOpen className="mr-1.5 h-3.5 w-3.5" />Open subject
+                      </Button>
                     </>
                   ) : (
                     <p className="mt-1 text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SessionStatus } from './session-status'
@@ -50,12 +51,25 @@ const ACTIVITY_LABELS: Record<string, string> = {
 }
 
 export function SessionCard({ session, onStatusChange, onEdit, onOpen }: SessionCardProps) {
+  const pathname = usePathname()
   const [loading, setLoading] = useState(false)
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confidenceOpen, setConfidenceOpen] = useState(false)
   const [confidence, setConfidence] = useState(session.confidenceRating ?? 0)
   const [confidenceSaved, setConfidenceSaved] = useState(Boolean(session.confidenceRating))
+
+  useEffect(() => {
+    // Opening is transient navigation state; never carry it into a new route.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOpening(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const resetOpeningState = () => setOpening(false)
+    window.addEventListener('pageshow', resetOpeningState)
+    return () => window.removeEventListener('pageshow', resetOpeningState)
+  }, [])
   const subject = session.activity?.unit.subject
   const unit = session.activity?.unit
   const activityType = session.activity?.activityType

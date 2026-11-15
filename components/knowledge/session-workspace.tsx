@@ -1113,7 +1113,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     finally { document.querySelectorAll('article[data-exam-os-pdf-export]').forEach((node) => node.remove()); setExporting(false) }
   }
 
-  return <main ref={rootRef} className={`relative mx-auto w-full bg-background px-4 py-5 text-foreground sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
+  return <main ref={rootRef} className={`session-workspace relative mx-auto w-full bg-background text-foreground px-4 py-5 sm:px-6 lg:px-8 lg:py-8 ${wideMode ? 'max-w-[110rem]' : 'max-w-7xl'}`}>
     <style>{editorCss}</style>
     {external && <Image src="/logo_parama.png" alt="Paramaa" width={144} height={48} priority className="absolute right-6 top-6 z-40 h-auto w-28 sm:right-10 sm:top-9 sm:w-36" />}
 

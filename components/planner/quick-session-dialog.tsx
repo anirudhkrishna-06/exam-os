@@ -17,14 +17,17 @@ function coverage(unit: Unit) {
   const enabled = unit.unitActivities.filter((activity) => activity.enabled)
   if (enabled.length === 0) return 1
   return enabled.reduce((total, activity) => {
-    const estimated = Math.max(1, activity.estimatedSessions)
-    const sessionProgress = activity.completedSessions / estimated
+    const estimated = Math.max(1, Number(activity.estimatedSessions) || 1)
+    const completed = Number(activity.completedSessions) || 0
+    const sessionProgress = completed / estimated
     return total + Math.min(1, Math.max(sessionProgress, activity.status === 'completed' ? 1 : activity.status === 'in_progress' ? 0.5 : 0))
   }, 0) / enabled.length
 }
 
 function isActivityComplete(activity: Activity) {
-  return activity.status === 'completed' || activity.completedSessions >= Math.max(1, activity.estimatedSessions)
+  const estimated = Math.max(1, Number(activity.estimatedSessions) || 1)
+  const completed = Number(activity.completedSessions) || 0
+  return activity.status === 'completed' || completed >= estimated
 }
 
 function leastCoveredUnit(subject?: Subject) {

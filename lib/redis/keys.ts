@@ -5,7 +5,9 @@ export const redisKeys = {
   scheduleSlots: (userId: string) => `${prefix(userId)}:schedule-slots`,
   seasons: (userId: string) => `${prefix(userId)}:seasons`,
   season: (userId: string, seasonId: string) => `${prefix(userId)}:season:${seasonId}`,
-  subjects: (userId: string, seasonId: string) => `${prefix(userId)}:subjects:${seasonId}`,
+  // v2 includes completed-session counts on each activity. Keep old cached
+  // subject payloads from being mistaken for the new progress-aware shape.
+  subjects: (userId: string, seasonId: string) => `${prefix(userId)}:subjects:v2:${seasonId}`,
   subject: (userId: string, subjectId: string) => `${prefix(userId)}:subject:${subjectId}`,
   units: (userId: string, subjectId: string) => `${prefix(userId)}:units:${subjectId}`,
   calendar: (userId: string, year: number, month: number) => `${prefix(userId)}:calendar:${year}:${month}`,

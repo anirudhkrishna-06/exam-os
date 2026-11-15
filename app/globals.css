@@ -105,6 +105,14 @@ body {
   color: hsl(var(--foreground)) !important;
 }
 
+/* Notes can contain legacy inline colors from pasted rich text. Keep every
+   workspace text node readable immediately in dark mode. The editor's color
+   picker is intentionally disabled visually in dark mode by this rule. */
+.dark .session-workspace .session-editor,
+.dark .session-workspace .session-editor * {
+  color: hsl(var(--foreground)) !important;
+}
+
 :root:not(.dark) .session-editor [style*="color: white" i],
 :root:not(.dark) .session-editor [style*="color:#fff" i],
 :root:not(.dark) .session-editor [style*="color: #fff" i],

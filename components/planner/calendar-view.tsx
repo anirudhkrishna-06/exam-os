@@ -37,7 +37,7 @@ interface CalendarViewProps {
   examDates?: Array<{ subjectId: string; subjectName: string; examDate: string; color: string }>
   restDates?: string[]
   seasonId: string
-  subjects: Array<{ id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }>
+  subjects: Array<{ id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string; completedSessions: number; estimatedSessions: number }> }> }>
   slots: Array<{ name: string; startTime: string; endTime: string; isEnabled?: boolean }>
 }
 

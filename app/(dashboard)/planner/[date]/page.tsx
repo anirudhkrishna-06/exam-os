@@ -110,7 +110,7 @@ export default async function DailyPlannerPage({
             unitNumber: unit.unitNumber,
             name: unit.name,
             difficulty: unit.difficulty,
-            unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status })),
+            unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status, completedSessions: activity.completedSessions, estimatedSessions: activity.estimatedSessions })),
           })),
         }))}
         revisionSuggestions={revisionSuggestions}

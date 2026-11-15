@@ -2,8 +2,9 @@ import { db } from '@/db'
 import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
 import { unitActivities } from '@/db/schema/activities'
+import { studySessions } from '@/db/schema/study-sessions'
 import { examSeasons } from '@/db/schema/exam-seasons'
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, count } from 'drizzle-orm'
 import { cacheAside } from '@/lib/redis/cache'
 import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
@@ -99,7 +100,8 @@ export async function deleteSubject(userId: string, subjectId: string) {
 }
 
 export async function getSubjectsForSeason(userId: string, seasonId: string) {
-  return cacheAside(redisKeys.subjects(userId, seasonId), CACHE_TTL.subjects, () => db.query.subjects.findMany({
+  return cacheAside(redisKeys.subjects(userId, seasonId), CACHE_TTL.subjects, async () => {
+    const subjectRows = await db.query.subjects.findMany({
     where: and(eq(subjects.seasonId, seasonId), eq(subjects.userId, userId)),
     orderBy: [asc(subjects.position)],
     with: {
@@ -108,6 +110,32 @@ export async function getSubjectsForSeason(userId: string, seasonId: string) {
         with: { unitActivities: true },
       },
     },
-  }))
+    })
+
+    // Activity.status describes syllabus state, but completed sessions are the
+    // source of truth for work actually done. Keep this count beside each
+    // activity so planner defaults reflect completed sessions immediately.
+    const completedRows = await db
+      .select({ activityId: studySessions.activityId, completedSessions: count(studySessions.id) })
+      .from(studySessions)
+      .where(and(
+        eq(studySessions.userId, userId),
+        eq(studySessions.seasonId, seasonId),
+        eq(studySessions.status, 'completed'),
+      ))
+      .groupBy(studySessions.activityId)
+    const completedByActivity = new Map(completedRows.map((row) => [row.activityId, Number(row.completedSessions)]))
+
+    return subjectRows.map((subject) => ({
+      ...subject,
+      units: subject.units.map((unit) => ({
+        ...unit,
+        unitActivities: unit.unitActivities.map((activity) => ({
+          ...activity,
+          completedSessions: completedByActivity.get(activity.id) ?? 0,
+        })),
+      })),
+    }))
+  })
 }
 

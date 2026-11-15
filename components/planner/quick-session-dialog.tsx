@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { CalendarPlus, Check, Clock3, Sparkles } from 'lucide-react'
+import { CalendarPlus, Check, Clock3 } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { todayDateString } from '@/lib/date/utils'
 
-type Activity = { id: string; activityType: string; enabled: boolean; status: string }
+type Activity = { id: string; activityType: string; enabled: boolean; status: string; completedSessions: number; estimatedSessions: number }
 type Unit = { id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Activity[] }
 type Subject = { id: string; name: string; examDate: string; color: string | null; units: Unit[] }
 type Slot = { name: string; startTime: string; endTime: string; isEnabled?: boolean }
@@ -16,7 +16,15 @@ const activityOrder = ['theory_1', 'theory_2', 'numericals', 'previous_papers', 
 function coverage(unit: Unit) {
   const enabled = unit.unitActivities.filter((activity) => activity.enabled)
   if (enabled.length === 0) return 1
-  return enabled.reduce((total, activity) => total + (activity.status === 'completed' ? 1 : activity.status === 'in_progress' ? 0.5 : 0), 0) / enabled.length
+  return enabled.reduce((total, activity) => {
+    const estimated = Math.max(1, activity.estimatedSessions)
+    const sessionProgress = activity.completedSessions / estimated
+    return total + Math.min(1, Math.max(sessionProgress, activity.status === 'completed' ? 1 : activity.status === 'in_progress' ? 0.5 : 0))
+  }, 0) / enabled.length
+}
+
+function isActivityComplete(activity: Activity) {
+  return activity.status === 'completed' || activity.completedSessions >= Math.max(1, activity.estimatedSessions)
 }
 
 function leastCoveredUnit(subject?: Subject) {
@@ -24,7 +32,7 @@ function leastCoveredUnit(subject?: Subject) {
 }
 
 function nextActivity(unit?: Unit, preferredId?: string) {
-  const unfinished = unit?.unitActivities.filter((activity) => activity.enabled && activity.status !== 'completed') ?? []
+  const unfinished = unit?.unitActivities.filter((activity) => activity.enabled && !isActivityComplete(activity)) ?? []
   return unfinished.find((activity) => activity.id === preferredId)
     ?? [...unfinished].sort((a, b) => activityOrder.indexOf(a.activityType) - activityOrder.indexOf(b.activityType))[0]
 }
@@ -50,7 +58,7 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
   const subject = subjects.find((item) => item.id === subjectId)
   const [unitId, setUnitId] = useState(defaultUnit?.id ?? '')
   const unit = subject?.units.find((item) => item.id === unitId)
-  const activities = unit?.unitActivities.filter((item) => item.enabled && item.status !== 'completed') ?? []
+  const activities = unit?.unitActivities.filter((item) => item.enabled && !isActivityComplete(item)) ?? []
   const [activityId, setActivityId] = useState(defaultActivity?.id ?? '')
   const [slotName, setSlotName] = useState(defaultSlot?.name ?? '')
   const [saving, setSaving] = useState(false)
@@ -99,8 +107,7 @@ export function QuickSessionDialog({ open, onOpenChange, seasonId, date, subject
       </DialogHeader>
       <div className="grid gap-6 px-6 pb-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="space-y-5">
-          <div className="rounded-xl border border-primary/20 bg-primary/[0.04] px-3 py-2.5 text-xs text-muted-foreground"><Sparkles className="mr-1.5 inline h-3.5 w-3.5 text-primary" />Smart defaults are ready — nearest exam, least-covered unit, next focus, and next free slot.</div>
-          <ChoiceGroup label="Subject">{subjects.map((item) => <Choice key={item.id} active={subjectId === item.id} onClick={() => chooseSubject(item.id)} color={item.color}>{item.name}<small>{item.examDate === upcomingSubject?.examDate ? 'Next exam' : item.examDate}</small></Choice>)}</ChoiceGroup>
+          <ChoiceGroup label="Subject">{subjects.map((item) => <Choice key={item.id} active={subjectId === item.id} onClick={() => chooseSubject(item.id)} color={item.color}>{item.name}</Choice>)}</ChoiceGroup>
           <ChoiceGroup label="Unit">{subject?.units.map((item) => <Choice key={item.id} active={unitId === item.id} onClick={() => chooseUnit(item.id)}>{item.name || `Unit ${item.unitNumber}`}<small>{Math.round(coverage(item) * 100)}% covered</small></Choice>)}</ChoiceGroup>
           <ChoiceGroup label="Focus">{activities.map((item) => <Choice key={item.id} active={activityId === item.id} onClick={() => setActivityId(item.id)}>{activityLabels[item.activityType] ?? item.activityType}</Choice>)}</ChoiceGroup>
           <ChoiceGroup label="Time">{availableSlots.map((item) => <Choice key={item.name} active={slotName === item.name} disabled={occupied.has(item.name)} onClick={() => setSlotName(item.name)}><Clock3 className="h-3.5 w-3.5" />{item.name}<small>{occupied.has(item.name) ? 'Booked' : item.startTime.slice(0, 5)}</small></Choice>)}</ChoiceGroup>

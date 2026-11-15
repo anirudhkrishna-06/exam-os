@@ -84,7 +84,7 @@ export default async function PlannerCalendarPage({
           id: subject.id, name: subject.name, examDate: subject.examDate, color: subject.color,
           units: subject.units.map((unit) => ({
             id: unit.id, unitNumber: unit.unitNumber, name: unit.name, difficulty: unit.difficulty,
-            unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status })),
+            unitActivities: unit.unitActivities.map((activity) => ({ id: activity.id, activityType: activity.activityType, enabled: activity.enabled, status: activity.status, completedSessions: activity.completedSessions, estimatedSessions: activity.estimatedSessions })),
           })),
         }))}
         slots={slots}

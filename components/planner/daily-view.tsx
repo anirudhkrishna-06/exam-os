@@ -11,7 +11,7 @@ import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Coffee, Sparkles, 
 import { QuickSessionDialog } from './quick-session-dialog'
 import { todayDateString } from '@/lib/date/utils'
 
-type QuickSubject = { id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string }> }> }
+type QuickSubject = { id: string; name: string; examDate: string; color: string | null; units: Array<{ id: string; unitNumber: number; name: string; difficulty: string; unitActivities: Array<{ id: string; activityType: string; enabled: boolean; status: string; completedSessions: number; estimatedSessions: number }> }> }
 type RevisionSuggestion = { id: string; subjectId: string; subjectName: string; unitId: string; unitName: string; activityId: string; sourceActivity: string; suggestedDate: string; reason: string }
 
 interface DailyViewProps {

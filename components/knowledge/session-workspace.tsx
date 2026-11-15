@@ -145,9 +145,9 @@ const editorCss = `
 .session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
-.session-editor figure[data-media] { position: relative; display: block; width: min(100%, 52rem); margin: 1.25rem 0; border-radius: 0.85rem; overflow: hidden; background: color-mix(in srgb, currentColor 4%, transparent); }
+.session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem 0; border: 0; border-radius: 0; overflow: visible; background: transparent; }
 .session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }
-.session-editor figure[data-media] figcaption { padding: 0.45rem 0.75rem 0.6rem; color: color-mix(in srgb, currentColor 55%, transparent); font-size: 0.76rem; text-align: center; }
+.session-editor figure[data-media] figcaption { display: none; }
 .session-editor p[data-attachment] a { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 0.6rem; background: color-mix(in srgb, currentColor 7%, transparent); padding: 0.55rem 0.75rem; }
 .session-editor [data-math] .katex, .session-editor [data-math] .katex * { color: inherit; }
 .session-editor [data-math='inline'] .katex { font-size: 1em; }
@@ -628,7 +628,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
       const complete = await fetch(`/api/media/${prepared.asset.id}`, { method: 'PATCH' }); const result = await complete.json(); if (!complete.ok) throw new Error(result.error ?? 'Upload could not be verified')
       restoreSelection(); focusEditor()
       const html = isImage
-        ? `<figure data-media data-asset-id="${prepared.asset.id}" contenteditable="false"><img src="/api/media/${prepared.asset.id}" alt="${escapeHtml(file.name)}" loading="lazy" draggable="false"><figcaption>${escapeHtml(file.name)}</figcaption></figure><p><br></p>`
+        ? `<figure data-media data-asset-id="${prepared.asset.id}" contenteditable="false"><img src="/api/media/${prepared.asset.id}" alt="${escapeHtml(file.name)}" loading="lazy" draggable="false"></figure><p><br></p>`
         : `<p data-attachment data-asset-id="${prepared.asset.id}"><a href="/api/media/${prepared.asset.id}" target="_blank" rel="noreferrer">📎 ${escapeHtml(file.name)}</a></p>`
       if (range) { const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range) }
       document.execCommand('insertHTML', false, html); rememberSelection(); sync()

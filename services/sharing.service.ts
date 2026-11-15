@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createHash, randomBytes } from 'crypto'
-import { and, asc, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm'
 import { hashPassword, verifyPassword } from '@/lib/auth/password'
 import { db } from '@/db'
 import { users } from '@/db/schema/users'
@@ -11,6 +11,7 @@ import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
 import { sharedContent, sessionShares, unitContentImports, externalShares, externalShareSessions, type SharedContentSnapshot } from '@/db/schema/sharing'
 import { invalidateUserCaches } from '@/lib/redis/invalidation'
+import { mediaAssets, mediaSnapshotRefs } from '@/db/schema/media'
 
 const EXPIRY_DAYS = 30
 const EXTERNAL_SESSION_HOURS = 8
@@ -21,6 +22,7 @@ function canonicalSnapshot(snapshot: SharedContentSnapshot) {
     note: snapshot.note,
     links: [...snapshot.links].sort((a, b) => `${a.url}:${a.nickname}`.localeCompare(`${b.url}:${b.nickname}`)),
     keywords: [...snapshot.keywords].sort(),
+    assetIds: [...(snapshot.assetIds ?? [])].sort(),
   })
 }
 
@@ -59,7 +61,18 @@ async function expireShares(userId?: string) {
 async function getOrCreateSnapshot(snapshot: SharedContentSnapshot) {
   const hash = snapshotHash(snapshot)
   await db.insert(sharedContent).values({ contentHash: hash, content: snapshot }).onConflictDoNothing({ target: sharedContent.contentHash })
-  return (await db.query.sharedContent.findFirst({ where: eq(sharedContent.contentHash, hash) }))!
+  const content = (await db.query.sharedContent.findFirst({ where: eq(sharedContent.contentHash, hash) }))!
+  for (const assetId of snapshot.assetIds ?? []) await db.insert(mediaSnapshotRefs).values({ assetId, sharedContentId: content.id }).onConflictDoNothing()
+  return content
+}
+
+function assetIdsFromHtml(value: string) { return [...new Set([...value.matchAll(/data-asset-id=["']([0-9a-f-]{36})["']/gi)].map((match) => match[1]))] }
+
+async function ownedReadyAssetIds(ownerUserId: string, content: string) {
+  const ids = assetIdsFromHtml(content)
+  if (!ids.length) return []
+  const assets = await db.query.mediaAssets.findMany({ where: and(eq(mediaAssets.ownerId, ownerUserId), eq(mediaAssets.status, 'ready'), inArray(mediaAssets.id, ids)), columns: { id: true } })
+  return assets.map((asset) => asset.id)
 }
 
 export async function createSessionShare(senderUserId: string, sessionId: string, email: string, recipientUserId?: string) {
@@ -84,6 +97,7 @@ export async function createSessionShare(senderUserId: string, sessionId: string
     note: note ? { title: note.title, content: note.content } : null,
     links,
     keywords: keywords.map((item) => item.keyword),
+    assetIds: await ownedReadyAssetIds(senderUserId, note?.content ?? ''),
   }
   const content = await getOrCreateSnapshot(snapshot)
   await expireShares()
@@ -223,7 +237,7 @@ async function snapshotForOwner(ownerUserId: string, sessionId: string) {
     db.query.knowledgeLinks.findMany({ where: eq(knowledgeLinks.sessionId, sessionId), orderBy: [asc(knowledgeLinks.createdAt)], columns: { url: true, nickname: true, category: true } }),
     db.query.sessionKeywords.findMany({ where: eq(sessionKeywords.sessionId, sessionId), orderBy: [asc(sessionKeywords.createdAt)], columns: { keyword: true } }),
   ])
-  return { session, snapshot: { title: note?.title || `Session ${session.scheduledDate}`, note: note ? { title: note.title, content: sanitizeExternalHtml(note.content) } : null, links: links.filter((link) => safeExternalUrl(link.url)).map((link) => ({ ...link, url: safeExternalUrl(link.url) })), keywords: keywords.map((item) => item.keyword) } satisfies SharedContentSnapshot }
+  return { session, snapshot: { title: note?.title || `Session ${session.scheduledDate}`, note: note ? { title: note.title, content: sanitizeExternalHtml(note.content) } : null, links: links.filter((link) => safeExternalUrl(link.url)).map((link) => ({ ...link, url: safeExternalUrl(link.url) })), keywords: keywords.map((item) => item.keyword), assetIds: await ownedReadyAssetIds(ownerUserId, note?.content ?? '') } satisfies SharedContentSnapshot }
 }
 
 export async function createExternalShare(ownerUserId: string, sessionId: string, passcode: string, expiresAt?: string | null) {

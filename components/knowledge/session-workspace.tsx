@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type DragEvent, type FormEvent, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
-import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
+import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, ImagePlus, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Paperclip, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -36,9 +36,10 @@ export type Workspace = {
   related?: Array<{ session: WorkspaceSession; note: { title: string; content: string } | null }>
 }
 
-type BlockId = 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'todo' | 'quote' | 'code' | 'divider' | 'callout'
+type BlockId = 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'todo' | 'quote' | 'code' | 'divider' | 'callout' | 'image' | 'attach'
 type ActiveState = { bold: boolean; italic: boolean; underline: boolean; strike: boolean; list: 'ul' | 'ol' | 'todo' | null }
 type BubbleState = { x: number; y: number; visible: boolean; linkMode: boolean }
+type SelectedMedia = { id: string; x: number; y: number }
 type SlashState = { query: string; index: number; top: number; bottom: number; left: number }
 type OutlineHeading = { id: string; text: string; level: 1 | 2 | 3 }
 
@@ -84,6 +85,8 @@ const blocks: Array<{ id: BlockId; title: string; hint: string; keywords: string
   { id: 'callout', title: 'Callout', hint: 'Make a point stand out', keywords: 'note tip info highlight box', icon: <Lightbulb className={iconClass} /> },
   { id: 'code', title: 'Code', hint: 'Monospace code block', keywords: 'pre snippet formula ```', icon: <Code className={iconClass} /> },
   { id: 'divider', title: 'Divider', hint: 'Visually divide sections', keywords: 'hr line rule separator ---', icon: <Minus className={iconClass} /> },
+  { id: 'image', title: 'Image', hint: 'Insert a diagram or screenshot', keywords: 'image diagram screenshot media', icon: <ImagePlus className={iconClass} /> },
+  { id: 'attach', title: 'Attachment', hint: 'Attach a PDF or file', keywords: 'attach file pdf document', icon: <Paperclip className={iconClass} /> },
 ]
 
 const blockTypeOptions = [
@@ -142,6 +145,10 @@ const editorCss = `
 .session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
+.session-editor figure[data-media] { position: relative; display: block; width: min(100%, 52rem); margin: 1.25rem 0; border-radius: 0.85rem; overflow: hidden; background: color-mix(in srgb, currentColor 4%, transparent); }
+.session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }
+.session-editor figure[data-media] figcaption { padding: 0.45rem 0.75rem 0.6rem; color: color-mix(in srgb, currentColor 55%, transparent); font-size: 0.76rem; text-align: center; }
+.session-editor p[data-attachment] a { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 0.6rem; background: color-mix(in srgb, currentColor 7%, transparent); padding: 0.55rem 0.75rem; }
 .session-editor [data-math] .katex, .session-editor [data-math] .katex * { color: inherit; }
 .session-editor [data-math='inline'] .katex { font-size: 1em; }
 `
@@ -449,6 +456,8 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   const [exportProgress, setExportProgress] = useState(0)
   const [exportPhase, setExportPhase] = useState('Getting your workspace ready')
   const [exportError, setExportError] = useState('')
+  const [mediaBusy, setMediaBusy] = useState(false)
+  const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null)
 
   const rootRef = useRef<HTMLElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -464,6 +473,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   const flipStateRef = useRef<ReturnType<typeof Flip.getState> | null>(null)
   const exportDialogRef = useRef<HTMLDivElement>(null)
   const exportFillRef = useRef<HTMLDivElement>(null)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
   const wideBusyRef = useRef(false)
   const savedRef = useRef({ title: initial.note.title, content: initial.note.content })
   const latestRef = useRef({ title, content })
@@ -601,6 +611,35 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   function focusEditor() {
     editorRef.current?.focus({ preventScroll: true })
     restoreSelection()
+  }
+
+  async function insertMediaFile(file: File) {
+    if (readOnly) return
+    const isImage = file.type.startsWith('image/')
+    if (!isImage && file.type !== 'application/pdf') { window.alert('Use a PNG, JPEG, WebP image or PDF file.'); return }
+    const range = selectionRef.current?.cloneRange()
+    setMediaBusy(true)
+    try {
+      let width: number | undefined; let height: number | undefined
+      if (isImage) { const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => { const image = new window.Image(); const objectUrl = URL.createObjectURL(file); image.onload = () => { URL.revokeObjectURL(objectUrl); resolve({ width: image.naturalWidth, height: image.naturalHeight }) }; image.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Invalid image')) }; image.src = objectUrl }); width = dimensions.width; height = dimensions.height }
+      const prepare = await fetch('/api/media/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, mimeType: file.type, size: file.size, width, height }) })
+      const prepared = await prepare.json(); if (!prepare.ok) throw new Error(prepared.error ?? 'Unable to prepare upload')
+      const upload = await fetch(prepared.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file }); if (!upload.ok) throw new Error('Upload failed')
+      const complete = await fetch(`/api/media/${prepared.asset.id}`, { method: 'PATCH' }); const result = await complete.json(); if (!complete.ok) throw new Error(result.error ?? 'Upload could not be verified')
+      restoreSelection(); focusEditor()
+      const html = isImage
+        ? `<figure data-media data-asset-id="${prepared.asset.id}" contenteditable="false"><img src="/api/media/${prepared.asset.id}" alt="${escapeHtml(file.name)}" loading="lazy" draggable="false"><figcaption>${escapeHtml(file.name)}</figcaption></figure><p><br></p>`
+        : `<p data-attachment data-asset-id="${prepared.asset.id}"><a href="/api/media/${prepared.asset.id}" target="_blank" rel="noreferrer">📎 ${escapeHtml(file.name)}</a></p>`
+      if (range) { const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range) }
+      document.execCommand('insertHTML', false, html); rememberSelection(); sync()
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'Unable to upload file') }
+    finally { setMediaBusy(false) }
+  }
+
+  function openMediaPicker(kind: 'image' | 'attach') {
+    if (!mediaInputRef.current) return
+    mediaInputRef.current.accept = kind === 'image' ? 'image/png,image/jpeg,image/webp' : 'image/png,image/jpeg,image/webp,application/pdf'
+    mediaInputRef.current.click()
   }
 
   const sync = useCallback(() => {
@@ -812,6 +851,8 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
         break
       }
       case 'divider': document.execCommand('insertHTML', false, '<hr><p><br></p>'); break
+      case 'image': openMediaPicker('image'); return
+      case 'attach': openMediaPicker('attach'); return
     }
   }
 
@@ -892,6 +933,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
       selection?.removeAllRanges()
       selection?.addRange(range)
     } catch { /* fall through and apply at the current caret */ }
+    rememberSelection()
     root.focus({ preventScroll: true })
     runBlock(id)
     rememberSelection()
@@ -937,6 +979,8 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   }
 
   function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    const image = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'))
+    if (image) { event.preventDefault(); rememberSelection(); const file = image.getAsFile(); if (file) void insertMediaFile(file); return }
     event.preventDefault()
     focusEditor()
     const clipboard = event.clipboardData
@@ -950,6 +994,17 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     }
     rememberSelection()
     sync()
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    const file = Array.from(event.dataTransfer.files).find((item) => item.type.startsWith('image/') || item.type === 'application/pdf')
+    if (!file) return
+    event.preventDefault()
+    const root = editorRef.current
+    const point = document.caretRangeFromPoint?.(event.clientX, event.clientY)
+    if (root && point && root.contains(point.startContainer)) selectionRef.current = point.cloneRange()
+    else rememberSelection()
+    void insertMediaFile(file)
   }
 
   function handleEditorKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -999,8 +1054,28 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   }
 
   function handleEditorClick(event: ReactMouseEvent<HTMLDivElement>) {
-    const anchor = (event.target as HTMLElement).closest('a')
+    const target = event.target as HTMLElement
+    const figure = target.closest('figure[data-media]') as HTMLElement | null
+    if (figure && !readOnly) {
+      event.preventDefault()
+      const rect = figure.getBoundingClientRect()
+      setSelectedMedia({ id: figure.dataset.assetId ?? '', x: Math.min(Math.max(12, rect.left), window.innerWidth - 150), y: Math.max(12, rect.top - 48) })
+      return
+    }
+    setSelectedMedia(null)
+    const anchor = target.closest('a')
     if (anchor && (event.metaKey || event.ctrlKey)) { event.preventDefault(); window.open((anchor as HTMLAnchorElement).href, '_blank', 'noopener') }
+  }
+
+  function removeSelectedMedia() {
+    const id = selectedMedia?.id
+    if (!id || !editorRef.current) return
+    const figure = Array.from(editorRef.current.querySelectorAll<HTMLElement>('figure[data-media]')).find((item) => item.dataset.assetId === id)
+    if (!figure) { setSelectedMedia(null); return }
+    figure.remove()
+    setSelectedMedia(null)
+    sync()
+    focusEditor()
   }
 
   /* ---------- sidebar actions */
@@ -1162,7 +1237,9 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
             <span className="ml-auto hidden items-center gap-1 text-xs text-muted-foreground md:flex">Type <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">/</kbd> for blocks</span>
           </div>}
           {readOnly ? <div className={`border-b px-6 py-5 text-xl font-semibold sm:px-10 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : ''}`}>{title}</div> : <Input value={title} onChange={(event) => { setTitle(event.target.value); setSaveState('unsaved') }} placeholder="Untitled note" aria-label="Note title" className={`h-auto rounded-none border-0 border-b px-6 py-5 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`} />}
-          <div ref={editorRef} contentEditable={!readOnly} suppressContentEditableWarning spellCheck={!readOnly} dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={readOnly ? undefined : handleEditorKeyDown} onKeyUp={readOnly ? undefined : rememberSelection} onMouseUp={readOnly ? undefined : rememberSelection} onMouseDown={readOnly ? undefined : handleEditorMouseDown} onClick={readOnly ? undefined : handleEditorClick} onPaste={readOnly ? undefined : handlePaste} onInput={readOnly ? undefined : handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
+          <input ref={mediaInputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void insertMediaFile(file) }} />
+          {mediaBusy && <div className="flex items-center gap-2 border-b px-6 py-2 text-xs text-muted-foreground" role="status"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />Uploading media…</div>}
+          <div ref={editorRef} contentEditable={!readOnly} suppressContentEditableWarning spellCheck={!readOnly} dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={readOnly ? undefined : handleEditorKeyDown} onKeyUp={readOnly ? undefined : rememberSelection} onMouseUp={readOnly ? undefined : rememberSelection} onMouseDown={readOnly ? undefined : handleEditorMouseDown} onClick={readOnly ? undefined : handleEditorClick} onPaste={readOnly ? undefined : handlePaste} onDrop={readOnly ? undefined : handleDrop} onDragOver={readOnly ? undefined : (event) => event.preventDefault()} onInput={readOnly ? undefined : handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
           <div className={`flex items-center justify-between rounded-b-xl border-t bg-muted/10 px-6 py-3 text-xs text-muted-foreground ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`}><span>{readOnly ? 'Viewing shared material' : 'Write freely. Changes save automatically.'}</span><span>{words} {words === 1 ? 'word' : 'words'} · {readingMinutes} min read</span></div>
         </Card>
       </div>
@@ -1207,6 +1284,11 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
         <ColorMenu onText={(value) => applyColor('foreColor', value)} onHighlight={(value) => applyColor('hiliteColor', value)} />
       </>}
     </div>
+
+    {selectedMedia && <div className="fixed z-50 flex items-center gap-1 rounded-lg border border-destructive/20 bg-popover/95 p-1 shadow-xl backdrop-blur" style={{ left: selectedMedia.x, top: selectedMedia.y }} role="toolbar" aria-label="Image actions" onMouseDown={(event) => event.preventDefault()}>
+      <button type="button" className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={removeSelectedMedia}><Trash2 className="h-3.5 w-3.5" />Remove image</button>
+      <button type="button" aria-label="Close image actions" className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setSelectedMedia(null)}><X className="h-3.5 w-3.5" /></button>
+    </div>}
 
     {exporting && <div className="fixed inset-0 z-[100] grid place-items-center bg-foreground/35 p-5 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pdf-export-title" aria-describedby="pdf-export-status">
       <div ref={exportDialogRef} className="w-full max-w-md overflow-hidden rounded-2xl border border-border/80 bg-background/95 p-6 shadow-2xl shadow-foreground/20">

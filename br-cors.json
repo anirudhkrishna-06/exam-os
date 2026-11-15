@@ -1,0 +1,20 @@
+[
+  {
+    "corsRuleName": "paramaa-production",
+    "allowedOrigins": [
+      "https://paramaa-padi-da.vercel.app"
+    ],
+    "allowedOperations": [
+      "s3_put",
+      "s3_get",
+      "s3_head"
+    ],
+    "allowedHeaders": [
+      "*"
+    ],
+    "exposeHeaders": [
+      "etag"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

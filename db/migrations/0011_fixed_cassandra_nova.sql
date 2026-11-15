@@ -1,0 +1,1 @@
+ALTER TABLE "media_note_refs" ADD CONSTRAINT "media_note_refs_one_note_check" CHECK (num_nonnulls("media_note_refs"."session_note_id", "media_note_refs"."unit_note_id") = 1);

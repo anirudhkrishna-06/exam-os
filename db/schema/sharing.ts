@@ -11,6 +11,7 @@ export type SharedContentSnapshot = {
   note: { title: string; content: string } | null
   links: Array<{ url: string; nickname: string; category: string }>
   keywords: string[]
+  assetIds?: string[]
 }
 
 export const sharedContent = pgTable('shared_content', {

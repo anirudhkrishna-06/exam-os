@@ -71,6 +71,20 @@
       "when": 1794507190125,
       "tag": "0009_wise_skreet",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794766889787,
+      "tag": "0010_unusual_squadron_supreme",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1794767279205,
+      "tag": "0011_fixed_cassandra_nova",
+      "breakpoints": true
     }
   ]
 }

@@ -11,6 +11,7 @@ import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
 import { invalidateUserCaches } from '@/lib/redis/invalidation'
 import { getUnitSharedContent } from '@/services/sharing.service'
+import { syncSessionNoteMedia } from '@/services/media.service'
 
 async function ownedSession(userId: string, sessionId: string) {
   return db.query.studySessions.findFirst({
@@ -41,6 +42,7 @@ export async function saveSessionNote(userId: string, sessionId: string, title: 
     target: sessionNotes.sessionId,
     set: { title: title.trim() || 'Untitled note', content, updatedAt: new Date() },
   }).returning()
+  await syncSessionNoteMedia(userId, note.id, content)
   await invalidateUserCaches({ userId })
   return note
 }

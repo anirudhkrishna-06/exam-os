@@ -145,13 +145,15 @@ const editorCss = `
 .session-editor tr:last-child td { border-bottom: 0; }
 .session-editor th:last-child, .session-editor td:last-child { border-right: 0; }
 .session-editor ::selection { background: rgba(35, 131, 226, 0.28); }
-.session-editor [data-math='block'] { display: block; overflow-x: auto; margin: 0.9rem 0; text-align: center; }
-.session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
+.session-editor [data-math='block'] { display: block; overflow-x: auto; scrollbar-width: none; margin: 0.9rem 0; text-align: center; }
+.session-editor [data-math='block']::-webkit-scrollbar { display: none; }
+.session-editor [data-math='block'] .katex-display { margin: 0; overflow: visible; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
 .session-editor.equation-select-mode { cursor: crosshair; }
 .session-editor [data-math][data-equation-bookmark] { position: relative; display: inline-block; max-width: 100%; border: 1px solid color-mix(in srgb, #f59e0b 38%, hsl(var(--border))); border-radius: 0.55rem; background: color-mix(in srgb, #f59e0b 12%, hsl(var(--background))); box-shadow: 0 0 0 2px color-mix(in srgb, #f59e0b 10%, transparent); }
-.session-editor [data-math='block'][data-equation-bookmark] { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; margin: 0.9rem auto; overflow-x: auto; padding: 0.3rem 0.85rem; text-align: center; }
+.session-editor [data-math='block'][data-equation-bookmark] { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; margin: 0.9rem auto; overflow-x: auto; scrollbar-width: none; padding: 0.3rem 0.85rem; text-align: center; }
+.session-editor [data-math='block'][data-equation-bookmark]::-webkit-scrollbar { display: none; }
 .session-editor [data-math='inline'][data-equation-bookmark] { margin: 0 0.12rem; padding: 0.04rem 0.22rem; vertical-align: baseline; }
 .session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem auto; border: 0; border-radius: 0; overflow: visible; background: transparent; text-align: center; }
 .session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }

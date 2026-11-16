@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { gsap } from 'gsap'
 import { Flip } from 'gsap/Flip'
-import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, ImagePlus, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Paperclip, Palette, Plus, Quote, Redo2, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
+import { ArrowLeft, Bold, Check, ChevronDown, CircleCheck, Code, Download, ExternalLink, Expand, FileText, Heading1, Heading2, Heading3, ImagePlus, Italic, Lightbulb, Link2, List, ListChecks, ListOrdered, ListTree, Loader2, Minimize2, Minus, Paperclip, Palette, Plus, Quote, Redo2, Sigma, Strikethrough, Tag, Trash2, Type, Underline, Undo2, Unlink, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
@@ -34,7 +34,11 @@ export type Workspace = {
   keywords: Array<{ id: string; keyword: string }>
   previous?: { session: WorkspaceSession; note: { title: string; content: string } | null } | null
   related?: Array<{ session: WorkspaceSession; note: { title: string; content: string } | null }>
+  equations?: Array<{ id: string; expression: string; label: string; occurrence: number; variables: Array<{ id: string; symbol: string; explanation: string; notation: string }> }>
+  sharedBy?: string
 }
+
+type EquationCandidate = { expression: string; occurrence: number; x: number; y: number }
 
 type BlockId = 'text' | 'h1' | 'h2' | 'h3' | 'bullet' | 'number' | 'todo' | 'quote' | 'code' | 'divider' | 'callout' | 'image' | 'attach'
 type ActiveState = { bold: boolean; italic: boolean; underline: boolean; strike: boolean; list: 'ul' | 'ol' | 'todo' | null }
@@ -145,6 +149,8 @@ const editorCss = `
 .session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
+.session-editor.equation-select-mode { cursor: crosshair; }
+.session-editor [data-math][data-equation-bookmark] { position: relative; border-radius: 0.5rem; background: linear-gradient(transparent 20%, color-mix(in srgb, #f59e0b 28%, transparent) 20%, color-mix(in srgb, #f59e0b 28%, transparent) 86%, transparent 86%); box-shadow: 0 0 0 3px color-mix(in srgb, #f59e0b 12%, transparent); }
 .session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem auto; border: 0; border-radius: 0; overflow: visible; background: transparent; text-align: center; }
 .session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }
 .session-editor figure[data-media] figcaption { display: none; }
@@ -458,6 +464,10 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   const [exportError, setExportError] = useState('')
   const [mediaBusy, setMediaBusy] = useState(false)
   const [selectedMedia, setSelectedMedia] = useState<SelectedMedia | null>(null)
+  const [equationCandidate, setEquationCandidate] = useState<EquationCandidate | null>(null)
+  const [equationLabel, setEquationLabel] = useState('')
+  const [equationToast, setEquationToast] = useState('')
+  const [equationSelectMode, setEquationSelectMode] = useState(false)
 
   const rootRef = useRef<HTMLElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -478,6 +488,47 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   const savedRef = useRef({ title: initial.note.title, content: initial.note.content })
   const latestRef = useRef({ title, content })
   const saveStateRef = useRef(saveState)
+
+  const showEquationToast = useCallback((message: string) => { setEquationToast(message); window.setTimeout(() => setEquationToast(''), 2600) }, [])
+
+  useEffect(() => { editorRef.current?.classList.toggle('equation-select-mode', equationSelectMode) }, [equationSelectMode])
+
+
+  function inferEquationLabel(element: HTMLElement) {
+    const block = element.closest('p,h1,h2,h3,h4,li,blockquote,pre') as HTMLElement | null
+    const previous = block?.previousElementSibling?.textContent?.trim() || ''
+    const ownPrefix = (block?.textContent ?? '').split(element.textContent ?? '')[0]?.trim() ?? ''
+    const context = `${previous} ${ownPrefix}`.replace(/\s+/g, ' ').trim()
+    const explicit = context.match(/(?:formula|equation|for|of|using|calculating|calculate|find|law|theorem)\s*(?:for|of|:|-)?\s*([^.:;!?]{3,70})$/i)
+    if (explicit?.[1]) return explicit[1].replace(/[()\[\]]/g, '').trim()
+    if (previous && previous.length <= 90) return previous.replace(/[:\-–—]+$/, '').trim()
+    const heading = block?.previousElementSibling?.matches('h1,h2,h3,h4') ? previous : ''
+    return heading || 'Important equation'
+  }
+
+  function applyEquationMarks() {
+    const root = editorRef.current
+    if (!root) return
+    root.querySelectorAll<HTMLElement>('[data-math][data-equation-bookmark]').forEach((node) => { delete node.dataset.equationBookmark; node.classList.remove('equation-bookmark') })
+    const counts = new Map<string, number>()
+    root.querySelectorAll<HTMLElement>('[data-math]').forEach((node) => {
+      const expression = node.dataset.latex ?? ''
+      const occurrence = counts.get(expression) ?? 0
+      counts.set(expression, occurrence + 1)
+      const match = (workspace.equations ?? []).find((item) => item.expression === expression && item.occurrence === occurrence)
+      if (match) node.dataset.equationBookmark = match.id
+    })
+  }
+
+  async function saveEquation() {
+    if (!equationCandidate) return
+    const response = await fetch('/api/equations', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: workspace.session.id, expression: equationCandidate.expression, occurrence: equationCandidate.occurrence, label: equationLabel }) })
+    if (!response.ok) return
+    const result = await response.json()
+    setWorkspace((current) => ({ ...current, equations: [...(current.equations ?? []), result.equation] }))
+    setEquationCandidate(null)
+    showEquationToast('Equation Added')
+  }
 
   useEffect(() => {
     latestRef.current = { title, content }
@@ -514,6 +565,8 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     hydratedRef.current = true
     try { document.execCommand('defaultParagraphSeparator', false, 'p') } catch { /* unsupported */ }
   }, [initial.note.content])
+
+  useEffect(() => { applyEquationMarks() }, [content, workspace.equations])
 
   /* ---------- live document outline (desktop only) */
   useEffect(() => {
@@ -969,6 +1022,24 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
   }
 
   /* ---------- editor events */
+  function handleEditorMouseUp() {
+    rememberSelection()
+    if (readOnly) return
+    window.setTimeout(() => {
+      const root = editorRef.current; const selection = window.getSelection()
+      if (!root || !selection || !selection.rangeCount || selection.isCollapsed || !root.contains(selection.anchorNode) || !root.contains(selection.focusNode)) return
+      const range = selection.getRangeAt(0)
+      const math = closestIn(selection.anchorNode, '[data-math]', root) ?? closestIn(selection.focusNode, '[data-math]', root)
+      if (!math || !range.intersectsNode(math) || !math.dataset.latex) return
+      const expression = math.dataset.latex
+      const occurrence = Array.from(root.querySelectorAll<HTMLElement>('[data-math]')).filter((node) => node.dataset.latex === expression).indexOf(math)
+      if ((workspace.equations ?? []).some((item) => item.expression === expression && item.occurrence === occurrence)) return
+      const rect = math.getBoundingClientRect()
+      setEquationLabel(inferEquationLabel(math))
+      setEquationCandidate({ expression, occurrence, x: Math.min(rect.right + 12, window.innerWidth - 330), y: Math.min(Math.max(12, rect.top), window.innerHeight - 190) })
+    }, 0)
+  }
+
   function handleInput(event: FormEvent<HTMLDivElement>) {
     const root = event.currentTarget
     cleanSentinels()
@@ -1055,6 +1126,21 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
 
   function handleEditorClick(event: ReactMouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement
+    if (equationSelectMode && !readOnly) {
+      const math = target.closest('[data-math]') as HTMLElement | null
+      if (math?.dataset.latex && editorRef.current) {
+        event.preventDefault(); event.stopPropagation()
+        const expression = math.dataset.latex
+        const occurrence = Array.from(editorRef.current.querySelectorAll<HTMLElement>('[data-math]')).filter((node) => node.dataset.latex === expression).indexOf(math)
+        if (!(workspace.equations ?? []).some((item) => item.expression === expression && item.occurrence === occurrence)) {
+          const rect = math.getBoundingClientRect()
+          setEquationLabel(inferEquationLabel(math))
+          setEquationCandidate({ expression, occurrence, x: Math.min(rect.right + 12, window.innerWidth - 330), y: Math.min(Math.max(12, rect.top), window.innerHeight - 190) })
+        }
+        setEquationSelectMode(false)
+        return
+      }
+    }
     const figure = target.closest('figure[data-media]') as HTMLElement | null
     if (figure && !readOnly) {
       event.preventDefault()
@@ -1217,6 +1303,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
           <div ref={sentinelRef} className="h-px w-full" aria-hidden />
           {!readOnly && <div className={`sticky top-0 z-30 flex flex-wrap items-center gap-1 rounded-t-xl border-b bg-background/85 px-3 py-2 backdrop-blur-md transition-shadow duration-200 ${stuck ? 'shadow-md' : ''}`}>
             <ToolbarButton label="Undo (Ctrl+Z)" onClick={() => format('undo')}><Undo2 className="h-4 w-4" /></ToolbarButton>
+            <ToolbarButton label="Select an equation" active={equationSelectMode} onClick={() => setEquationSelectMode((current) => !current)}><Sigma className="h-4 w-4" /></ToolbarButton>
             <ToolbarButton label="Redo (Ctrl+Shift+Z)" onClick={() => format('redo')}><Redo2 className="h-4 w-4" /></ToolbarButton>
             <span className="mx-1 h-5 w-px bg-border" />
             <select aria-label="Text style" value={blockType} onMouseDown={rememberSelection} onChange={(event) => format('formatBlock', event.target.value)} className="h-8 max-w-[8rem] rounded-md border-0 bg-transparent px-2 text-xs font-medium text-muted-foreground outline-none transition hover:bg-muted">
@@ -1239,7 +1326,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
           {readOnly ? <div className={`border-b px-6 py-5 text-xl font-semibold sm:px-10 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : ''}`}>{title}</div> : <Input value={title} onChange={(event) => { setTitle(event.target.value); setSaveState('unsaved') }} placeholder="Untitled note" aria-label="Note title" className={`h-auto rounded-none border-0 border-b px-6 py-5 text-xl font-semibold shadow-none focus-visible:ring-0 sm:text-2xl ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`} />}
           <input ref={mediaInputRef} type="file" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void insertMediaFile(file) }} />
           {mediaBusy && <div className="flex items-center gap-2 border-b px-6 py-2 text-xs text-muted-foreground" role="status"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />Uploading media…</div>}
-          <div ref={editorRef} contentEditable={!readOnly} suppressContentEditableWarning spellCheck={!readOnly} dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={readOnly ? undefined : handleEditorKeyDown} onKeyUp={readOnly ? undefined : rememberSelection} onMouseUp={readOnly ? undefined : rememberSelection} onMouseDown={readOnly ? undefined : handleEditorMouseDown} onClick={readOnly ? undefined : handleEditorClick} onPaste={readOnly ? undefined : handlePaste} onDrop={readOnly ? undefined : handleDrop} onDragOver={readOnly ? undefined : (event) => event.preventDefault()} onInput={readOnly ? undefined : handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
+          <div ref={editorRef} contentEditable={!readOnly} suppressContentEditableWarning spellCheck={!readOnly} dir="ltr" role="textbox" aria-label="Session notes" aria-multiline="true" onKeyDown={readOnly ? undefined : handleEditorKeyDown} onKeyUp={readOnly ? undefined : rememberSelection} onMouseUp={readOnly ? undefined : handleEditorMouseUp} onMouseDown={readOnly ? undefined : handleEditorMouseDown} onClick={readOnly ? undefined : handleEditorClick} onPaste={readOnly ? undefined : handlePaste} onDrop={readOnly ? undefined : handleDrop} onDragOver={readOnly ? undefined : (event) => event.preventDefault()} onInput={readOnly ? undefined : handleInput} data-placeholder="Start writing, or press “/” for commands…" className={`session-editor min-h-[32rem] px-6 py-7 text-[0.98rem] leading-7 outline-none ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'} sm:py-9`} />
           <div className={`flex items-center justify-between rounded-b-xl border-t bg-muted/10 px-6 py-3 text-xs text-muted-foreground ${wideMode ? 'sm:px-16 xl:px-24' : 'sm:px-10'}`}><span>{readOnly ? 'Viewing shared material' : 'Write freely. Changes save automatically.'}</span><span>{words} {words === 1 ? 'word' : 'words'} · {readingMinutes} min read</span></div>
         </Card>
       </div>
@@ -1304,5 +1391,7 @@ export function SessionWorkspace({ initial, readOnly = false, sharedBy, external
     </div>}
 
     {slash && slashItems.length > 0 && <SlashMenu items={slashItems} index={Math.min(slash.index, slashItems.length - 1)} top={slash.top} bottom={slash.bottom} left={slash.left} onPick={pickSlash} onHover={(index) => setSlash((current) => current && { ...current, index })} />}
+    {equationCandidate && <div className="fixed z-[55] w-[min(20rem,calc(100vw-1.5rem))] rounded-xl border bg-popover p-4 text-popover-foreground shadow-2xl" style={{ left: equationCandidate.x, top: equationCandidate.y }}><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Mark equation</p><p className="mt-1 text-xs text-muted-foreground">Only rendered equations can be saved.</p></div><button type="button" onClick={() => setEquationCandidate(null)} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /></button></div><label className="mt-4 block text-xs font-medium">What is this equation about?<Input value={equationLabel} onChange={(event) => setEquationLabel(event.target.value)} className="mt-1.5 h-9 text-sm" autoFocus /></label><div className="mt-3 flex justify-end gap-2"><Button size="sm" variant="ghost" onClick={() => setEquationCandidate(null)}>Cancel</Button><Button size="sm" onClick={() => void saveEquation()}><Sigma className="mr-1.5 h-4 w-4" />Save equation</Button></div></div>}
+    {equationToast && <div role="status" className="fixed bottom-5 right-5 z-[60] rounded-xl bg-foreground px-4 py-3 text-sm font-medium text-background shadow-xl">{equationToast}</div>}
   </main>
 }

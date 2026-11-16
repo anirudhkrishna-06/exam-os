@@ -202,7 +202,7 @@ export async function getSharedImportWorkspace(userId: string, importId: string)
     note: { id: null, title: content.note?.title || content.title, content: content.note?.content || '' },
     links: content.links.map((link, index) => ({ id: `${item.importId}-link-${index}`, ...link })),
     keywords: content.keywords.map((keyword, index) => ({ id: `${item.importId}-keyword-${index}`, keyword })),
-    previous: null, related: [], sharedBy: item.senderName || item.senderEmail,
+    equations: [], previous: null, related: [], sharedBy: item.senderName || item.senderEmail,
   }
 }
 

@@ -12,7 +12,7 @@ import { dailySlotOverrides } from './schema/daily-slot-overrides'
 import { planVersions } from './schema/plan-versions'
 import { studySessions } from './schema/study-sessions'
 import { sessionHistory } from './schema/session-history'
-import { sessionNotes, knowledgeLinks, sessionKeywords } from './schema/knowledge'
+import { sessionNotes, knowledgeLinks, sessionKeywords, equationBookmarks, equationVariables } from './schema/knowledge'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
@@ -170,6 +170,17 @@ export const sessionKeywordsRelations = relations(sessionKeywords, ({ one }) => 
   user: one(users, { fields: [sessionKeywords.userId], references: [users.id] }),
 }))
 
+export const equationBookmarksRelations = relations(equationBookmarks, ({ one, many }) => ({
+  session: one(studySessions, { fields: [equationBookmarks.sessionId], references: [studySessions.id] }),
+  user: one(users, { fields: [equationBookmarks.userId], references: [users.id] }),
+  variables: many(equationVariables),
+}))
+
+export const equationVariablesRelations = relations(equationVariables, ({ one }) => ({
+  equation: one(equationBookmarks, { fields: [equationVariables.equationId], references: [equationBookmarks.id] }),
+  user: one(users, { fields: [equationVariables.userId], references: [users.id] }),
+}))
+
 export const sessionHistoryRelations = relations(sessionHistory, ({ one }) => ({
   studySession: one(studySessions, {
     fields: [sessionHistory.studySessionId],
@@ -239,6 +250,8 @@ const schema = {
   sessionNotesRelations,
   knowledgeLinksRelations,
   sessionKeywordsRelations,
+  equationBookmarksRelations,
+  equationVariablesRelations,
 }
 
 const databaseUrl = process.env.DATABASE_URL

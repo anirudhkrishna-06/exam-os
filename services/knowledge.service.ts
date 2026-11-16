@@ -1,11 +1,11 @@
 import { db } from '@/db'
 import { studySessions } from '@/db/schema/study-sessions'
-import { sessionNotes, knowledgeLinks, sessionKeywords } from '@/db/schema/knowledge'
+import { sessionNotes, knowledgeLinks, sessionKeywords, equationBookmarks, equationVariables } from '@/db/schema/knowledge'
 import { unitActivities } from '@/db/schema/activities'
 import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
 import { unitNotes, unitLinks, unitKeywords } from '@/db/schema/unit-knowledge'
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { cacheAside } from '@/lib/redis/cache'
 import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
@@ -27,13 +27,55 @@ export async function getSessionWorkspace(userId: string, sessionId: string) {
   const unitSessions = relatedSessions.filter((item) => item.id !== sessionId && item.activity?.unit.id === session.activity?.unit.id)
   const relatedIds = unitSessions.map((item) => item.id)
   const relatedNotes = relatedIds.length ? await db.query.sessionNotes.findMany({ where: eq(sessionNotes.userId, userId) }) : []
-  const [note, links, keywords] = await Promise.all([
+  const [note, links, keywords, equations] = await Promise.all([
     db.query.sessionNotes.findFirst({ where: eq(sessionNotes.sessionId, sessionId) }),
     db.query.knowledgeLinks.findMany({ where: eq(knowledgeLinks.sessionId, sessionId), orderBy: [asc(knowledgeLinks.createdAt)] }),
     db.query.sessionKeywords.findMany({ where: eq(sessionKeywords.sessionId, sessionId), orderBy: [asc(sessionKeywords.createdAt)] }),
+    db.query.equationBookmarks.findMany({ where: and(eq(equationBookmarks.sessionId, sessionId), eq(equationBookmarks.userId, userId)), with: { variables: true }, orderBy: [asc(equationBookmarks.createdAt)] }),
   ])
   const sameActivity = unitSessions.filter((item) => item.activity?.id === session.activity?.id)
-  return { session, note: note ?? { id: null, title: 'Untitled note', content: '' }, links, keywords, previous: sameActivity[0] ? { session: sameActivity[0], note: relatedNotes.find((item) => item.sessionId === sameActivity[0].id) ?? null } : null, related: unitSessions.filter((item) => item.activity?.id !== session.activity?.id).slice(0, 4).map((item) => ({ session: item, note: relatedNotes.find((note) => note.sessionId === item.id) ?? null })) }
+  return { session, note: note ?? { id: null, title: 'Untitled note', content: '' }, links, keywords, equations, previous: sameActivity[0] ? { session: sameActivity[0], note: relatedNotes.find((item) => item.sessionId === sameActivity[0].id) ?? null } : null, related: unitSessions.filter((item) => item.activity?.id !== session.activity?.id).slice(0, 4).map((item) => ({ session: item, note: relatedNotes.find((note) => note.sessionId === item.id) ?? null })) }
+}
+
+export async function listEquationBookmarks(userId: string) {
+  const rows = await db.select({ equation: equationBookmarks, session: studySessions, activity: unitActivities, unit: units, subject: subjects })
+    .from(equationBookmarks).innerJoin(studySessions, eq(equationBookmarks.sessionId, studySessions.id)).innerJoin(unitActivities, eq(studySessions.activityId, unitActivities.id)).innerJoin(units, eq(unitActivities.unitId, units.id)).innerJoin(subjects, eq(units.subjectId, subjects.id))
+    .where(eq(equationBookmarks.userId, userId)).orderBy(desc(equationBookmarks.createdAt))
+  const variables = rows.length ? await db.query.equationVariables.findMany({ where: eq(equationVariables.userId, userId) }) : []
+  return rows.map(({ equation, session, activity, unit, subject }) => ({ ...equation, scheduledDate: session.scheduledDate, variables: variables.filter((item) => item.equationId === equation.id), session: { id: session.id, scheduledDate: session.scheduledDate }, activityType: activity.activityType, unit: { id: unit.id, name: unit.name, unitNumber: unit.unitNumber }, subject: { id: subject.id, name: subject.name } }))
+}
+
+export async function addEquationBookmark(userId: string, sessionId: string, expression: string, label: string, occurrence = 0) {
+  if (!(await ownedSession(userId, sessionId))) throw new Error('Session not found')
+  const cleanExpression = expression.trim().slice(0, 10000)
+  const cleanLabel = label.trim().slice(0, 255) || 'Important equation'
+  if (!cleanExpression) throw new Error('Equation is required')
+  const [equation] = await db.insert(equationBookmarks).values({ userId, sessionId, expression: cleanExpression, label: cleanLabel, occurrence: Math.max(0, occurrence) }).returning()
+  await invalidateUserCaches({ userId })
+  return { ...equation, variables: [] }
+}
+
+export async function updateEquationBookmark(userId: string, equationId: string, label: string) {
+  const [equation] = await db.update(equationBookmarks).set({ label: label.trim().slice(0, 255) || 'Important equation', updatedAt: new Date() }).where(and(eq(equationBookmarks.id, equationId), eq(equationBookmarks.userId, userId))).returning()
+  if (!equation) throw new Error('Equation not found')
+  return equation
+}
+
+export async function removeEquationBookmark(userId: string, equationId: string) {
+  const [equation] = await db.delete(equationBookmarks).where(and(eq(equationBookmarks.id, equationId), eq(equationBookmarks.userId, userId))).returning()
+  if (!equation) throw new Error('Equation not found')
+}
+
+export async function addEquationVariable(userId: string, equationId: string, symbol: string, explanation: string, notation: string) {
+  const equation = await db.query.equationBookmarks.findFirst({ where: and(eq(equationBookmarks.id, equationId), eq(equationBookmarks.userId, userId)) })
+  if (!equation) throw new Error('Equation not found')
+  const [variable] = await db.insert(equationVariables).values({ userId, equationId, symbol: symbol.trim().slice(0, 100), explanation: explanation.trim().slice(0, 1000), notation: notation === 'subscript' || notation === 'superscript' ? notation : 'plain' }).returning()
+  return variable
+}
+
+export async function removeEquationVariable(userId: string, variableId: string) {
+  const [variable] = await db.delete(equationVariables).where(and(eq(equationVariables.id, variableId), eq(equationVariables.userId, userId))).returning()
+  if (!variable) throw new Error('Variable not found')
 }
 
 export async function saveSessionNote(userId: string, sessionId: string, title: string, content: string) {

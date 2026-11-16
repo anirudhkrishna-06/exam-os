@@ -58,12 +58,14 @@ export function DailyView({
   const [quickPrefill, setQuickPrefill] = useState<{ subjectId?: string; unitId?: string; activityId?: string }>()
   const [visibleSessions, setVisibleSessions] = useState(sessions)
   const optimisticStatusRef = useRef(new Map<string, Partial<SessionCardData>>())
+  const optimisticAddedRef = useRef(new Map<string, SessionCardData>())
 
   useEffect(() => {
     // Reconcile the optimistic day view with the server-authoritative refresh.
     // A refresh can briefly contain the old cached row while invalidation runs;
     // keep the local mutation until the fresh response confirms it.
     const mergedSessions = sessions.map((session) => {
+      if (optimisticAddedRef.current.has(session.id)) optimisticAddedRef.current.delete(session.id)
       const optimistic = optimisticStatusRef.current.get(session.id)
       if (!optimistic) return session
       const confirmed = optimistic.status === session.status
@@ -71,7 +73,7 @@ export function DailyView({
       if (confirmed) optimisticStatusRef.current.delete(session.id)
       return confirmed ? session : { ...session, ...optimistic }
     })
-    setVisibleSessions(mergedSessions)
+    setVisibleSessions([...mergedSessions, ...Array.from(optimisticAddedRef.current.values())])
   }, [sessions])
 
   // Navigation helpers
@@ -366,7 +368,12 @@ export function DailyView({
         onSave={handleSaveSession}
         onDelete={handleDeleteSession}
       />
-      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={(open) => { setQuickAddOpen(open); if (!open) setQuickPrefill(undefined) }} seasonId={seasonId} date={date} subjects={subjects} slots={templates} occupiedSlots={visibleSessions.map((session) => session.slotName)} prefill={quickPrefill} onAdded={(session) => { setVisibleSessions((current) => [...current, session]); router.refresh() }} />}
+      {seasonId && <QuickSessionDialog open={quickAddOpen} onOpenChange={(open) => { setQuickAddOpen(open); if (!open) setQuickPrefill(undefined) }} seasonId={seasonId} date={date} subjects={subjects} slots={templates} occupiedSlots={visibleSessions.map((session) => session.slotName)} prefill={quickPrefill} onAdded={(session) => {
+        const optimisticSession = { ...session, isSyncing: true }
+        optimisticAddedRef.current.set(session.id, optimisticSession)
+        setVisibleSessions((current) => current.some((item) => item.id === session.id) ? current : [...current, optimisticSession])
+        router.refresh()
+      }} />}
     </div>
   )
 }

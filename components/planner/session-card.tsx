@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import gsap from 'gsap'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { SessionStatus } from './session-status'
@@ -18,6 +19,7 @@ export interface SessionCardData {
   actualDurationMinutes?: number | null
   completionNote?: string | null
   confidenceRating?: number | null
+  isSyncing?: boolean
   activity?: {
     id: string
     activityType: string
@@ -52,6 +54,8 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 export function SessionCard({ session, onStatusChange, onEdit, onOpen }: SessionCardProps) {
   const pathname = usePathname()
+  const cardRef = useRef<HTMLDivElement>(null)
+  const previousStatusRef = useRef(session.status)
   const [loading, setLoading] = useState(false)
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -70,6 +74,38 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
     window.addEventListener('pageshow', resetOpeningState)
     return () => window.removeEventListener('pageshow', resetOpeningState)
   }, [])
+
+  useEffect(() => {
+    const card = cardRef.current
+    if (!card || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    gsap.fromTo(card, { autoAlpha: 0, y: 10 }, {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.36,
+      delay: Math.min(session.position * 0.04, 0.18),
+      ease: 'power3.out',
+      clearProps: 'transform,opacity,visibility',
+    })
+    if (session.isSyncing) {
+      gsap.fromTo(card, { boxShadow: '0 0 0 0 rgba(16, 185, 129, 0)' }, {
+        boxShadow: '0 0 0 5px rgba(16, 185, 129, 0.2)',
+        duration: 0.28,
+        delay: 0.18,
+        yoyo: true,
+        repeat: 1,
+        clearProps: 'boxShadow',
+      })
+    }
+    return () => { gsap.killTweensOf(card) }
+  }, [session.isSyncing, session.position])
+
+  useEffect(() => {
+    const card = cardRef.current
+    const becameComplete = previousStatusRef.current !== 'completed' && session.status === 'completed'
+    previousStatusRef.current = session.status
+    if (!card || !becameComplete || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    gsap.fromTo(card, { scale: 1 }, { scale: 1.012, duration: 0.16, yoyo: true, repeat: 1, ease: 'power2.out', clearProps: 'transform' })
+  }, [session.status])
   const subject = session.activity?.unit.subject
   const unit = session.activity?.unit
   const activityType = session.activity?.activityType
@@ -109,7 +145,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
     : 'Study session'
 
   return (
-    <Card className="relative z-0 overflow-visible border transition-all hover:z-20 hover:shadow-sm">
+    <Card ref={cardRef} className="relative z-0 overflow-visible border transition-all hover:z-20 hover:shadow-sm">
       <div className="flex border-l-4" style={{ borderLeftColor: subjectColor }}>
         <CardContent className="p-4 flex-1">
           <div className="flex items-start justify-between gap-2">
@@ -143,6 +179,7 @@ export function SessionCard({ session, onStatusChange, onEdit, onOpen }: Session
 
             <div className="relative z-50 flex flex-col items-end gap-2">
               <SessionStatus status={session.status} />
+              {session.isSyncing && <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" />Saving</span>}
               
               <div className="flex items-center gap-1 mt-1">
                 {onOpen && (

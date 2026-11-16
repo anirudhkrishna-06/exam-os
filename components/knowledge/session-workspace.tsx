@@ -145,7 +145,7 @@ const editorCss = `
 .session-editor [data-math='block'] .katex-display { margin: 0; overflow-x: auto; overflow-y: hidden; padding: 0.15rem 0; }
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
-.session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem 0; border: 0; border-radius: 0; overflow: visible; background: transparent; }
+.session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem auto; border: 0; border-radius: 0; overflow: visible; background: transparent; text-align: center; }
 .session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }
 .session-editor figure[data-media] figcaption { display: none; }
 .session-editor p[data-attachment] a { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 0.6rem; background: color-mix(in srgb, currentColor 7%, transparent); padding: 0.55rem 0.75rem; }

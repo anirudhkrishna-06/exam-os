@@ -15,7 +15,7 @@ type Equation = { id: string; expression: string; label: string; sessionId: stri
 const activityLabels: Record<string, string> = { theory_1: 'Theory 1', theory_2: 'Theory 2', numericals: 'Numericals', previous_papers: 'Past papers', revision: 'Revision' }
 const reduceMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
-export function EquationsPage({ initial }: { initial: Equation[] }) {
+export function EquationsPage({ initial, subject }: { initial: Equation[]; subject?: { id: string; name: string } }) {
   const [equations, setEquations] = useState(initial)
   const [query, setQuery] = useState('')
   const [unitFilter, setUnitFilter] = useState('all')

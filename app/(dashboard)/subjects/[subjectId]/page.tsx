@@ -3,7 +3,7 @@ import { getSubjectById } from '@/services/subject.service'
 import { getSubjectProgress } from '@/services/progress.service'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronRight, Calendar, Images } from 'lucide-react'
+import { ChevronRight, Calendar, Images, Sigma } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { daysUntil, formatDate, isExamUpcoming } from '@/lib/date/utils'
@@ -80,7 +80,10 @@ export default async function SubjectPage({
 
             {/* Quick Stat Pill */}
             <div className="flex items-center gap-4 bg-muted/40 p-3 rounded-lg border border-border/60">
-              <Link href={`/subjects/${subject.id}/gallery`} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"><Images className="h-3.5 w-3.5" /> Gallery</Link>
+              <div className="flex items-center gap-2">
+                <Link href={`/subjects/${subject.id}/gallery`} className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"><Images className="h-3.5 w-3.5" /> Gallery</Link>
+                <Link href={`/subjects/${subject.id}/equations`} className="inline-flex items-center gap-2 rounded-md border border-primary/25 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary shadow-sm transition hover:bg-primary/10"><Sigma className="h-3.5 w-3.5" /> Equations</Link>
+              </div>
               <div className="text-center px-2">
                 <p className="text-[11px] text-muted-foreground font-medium">Progress</p>
                 <p className="text-xl font-bold text-foreground">

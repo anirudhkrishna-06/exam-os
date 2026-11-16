@@ -22,7 +22,6 @@ import {
   LogOut,
   BarChart3,
   FileText,
-  Sigma,
   Menu,
   X,
   ChevronLeft,
@@ -55,7 +54,6 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { label: 'Subjects', href: '/subjects', icon: BookOpen },
       { label: 'Seasons', href: '/seasons', icon: CalendarDays },
       { label: 'Share Box', href: '/share-box', icon: Share2 },
-      { label: 'Equations', href: '/equations', icon: Sigma },
     ],
   },
   {

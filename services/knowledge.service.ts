@@ -37,10 +37,10 @@ export async function getSessionWorkspace(userId: string, sessionId: string) {
   return { session, note: note ?? { id: null, title: 'Untitled note', content: '' }, links, keywords, equations, previous: sameActivity[0] ? { session: sameActivity[0], note: relatedNotes.find((item) => item.sessionId === sameActivity[0].id) ?? null } : null, related: unitSessions.filter((item) => item.activity?.id !== session.activity?.id).slice(0, 4).map((item) => ({ session: item, note: relatedNotes.find((note) => note.sessionId === item.id) ?? null })) }
 }
 
-export async function listEquationBookmarks(userId: string) {
+export async function listEquationBookmarks(userId: string, subjectId?: string) {
   const rows = await db.select({ equation: equationBookmarks, session: studySessions, activity: unitActivities, unit: units, subject: subjects })
     .from(equationBookmarks).innerJoin(studySessions, eq(equationBookmarks.sessionId, studySessions.id)).innerJoin(unitActivities, eq(studySessions.activityId, unitActivities.id)).innerJoin(units, eq(unitActivities.unitId, units.id)).innerJoin(subjects, eq(units.subjectId, subjects.id))
-    .where(eq(equationBookmarks.userId, userId)).orderBy(desc(equationBookmarks.createdAt))
+    .where(subjectId ? and(eq(equationBookmarks.userId, userId), eq(subjects.id, subjectId)) : eq(equationBookmarks.userId, userId)).orderBy(desc(equationBookmarks.createdAt))
   const variables = rows.length ? await db.query.equationVariables.findMany({ where: eq(equationVariables.userId, userId) }) : []
   return rows.map(({ equation, session, activity, unit, subject }) => ({ ...equation, scheduledDate: session.scheduledDate, variables: variables.filter((item) => item.equationId === equation.id), session: { id: session.id, scheduledDate: session.scheduledDate }, activityType: activity.activityType, unit: { id: unit.id, name: unit.name, unitNumber: unit.unitNumber }, subject: { id: subject.id, name: subject.name } }))
 }

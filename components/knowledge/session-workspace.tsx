@@ -150,7 +150,9 @@ const editorCss = `
 .session-editor [data-math='inline'] { white-space: nowrap; }
 .session-editor [data-math] { color: hsl(var(--foreground)); }
 .session-editor.equation-select-mode { cursor: crosshair; }
-.session-editor [data-math][data-equation-bookmark] { position: relative; border-radius: 0.5rem; background: linear-gradient(transparent 20%, color-mix(in srgb, #f59e0b 28%, transparent) 20%, color-mix(in srgb, #f59e0b 28%, transparent) 86%, transparent 86%); box-shadow: 0 0 0 3px color-mix(in srgb, #f59e0b 12%, transparent); }
+.session-editor [data-math][data-equation-bookmark] { position: relative; display: inline-block; max-width: 100%; border: 1px solid color-mix(in srgb, #f59e0b 38%, hsl(var(--border))); border-radius: 0.55rem; background: color-mix(in srgb, #f59e0b 12%, hsl(var(--background))); box-shadow: 0 0 0 2px color-mix(in srgb, #f59e0b 10%, transparent); }
+.session-editor [data-math='block'][data-equation-bookmark] { display: block; width: fit-content; max-width: 100%; box-sizing: border-box; margin: 0.9rem auto; overflow-x: auto; padding: 0.3rem 0.85rem; text-align: center; }
+.session-editor [data-math='inline'][data-equation-bookmark] { margin: 0 0.12rem; padding: 0.04rem 0.22rem; vertical-align: baseline; }
 .session-editor figure[data-media] { position: relative; display: block; width: fit-content; max-width: 100%; margin: 1.25rem auto; border: 0; border-radius: 0; overflow: visible; background: transparent; text-align: center; }
 .session-editor figure[data-media] img { display: block; height: auto; max-height: 40rem; width: auto; max-width: 100%; margin: 0 auto; object-fit: contain; }
 .session-editor figure[data-media] figcaption { display: none; }

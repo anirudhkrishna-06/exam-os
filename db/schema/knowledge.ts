@@ -31,10 +31,19 @@ export const sessionKeywords = pgTable('session_keywords', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => [unique('session_keywords_session_keyword_unique').on(table.sessionId, table.keyword)])
 
+export const equationGroups = pgTable('equation_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).default('Related equations').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
 export const equationBookmarks = pgTable('equation_bookmarks', {
   id: uuid('id').primaryKey().defaultRandom(),
   sessionId: uuid('session_id').notNull().references(() => studySessions.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  groupId: uuid('group_id').references(() => equationGroups.id, { onDelete: 'set null' }),
   expression: text('expression').notNull(),
   label: varchar('label', { length: 255 }).notNull(),
   occurrence: integer('occurrence').default(0).notNull(),

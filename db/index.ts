@@ -12,7 +12,7 @@ import { dailySlotOverrides } from './schema/daily-slot-overrides'
 import { planVersions } from './schema/plan-versions'
 import { studySessions } from './schema/study-sessions'
 import { sessionHistory } from './schema/session-history'
-import { sessionNotes, knowledgeLinks, sessionKeywords, equationBookmarks, equationVariables } from './schema/knowledge'
+import { sessionNotes, knowledgeLinks, sessionKeywords, equationGroups, equationBookmarks, equationVariables } from './schema/knowledge'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 
@@ -173,7 +173,13 @@ export const sessionKeywordsRelations = relations(sessionKeywords, ({ one }) => 
 export const equationBookmarksRelations = relations(equationBookmarks, ({ one, many }) => ({
   session: one(studySessions, { fields: [equationBookmarks.sessionId], references: [studySessions.id] }),
   user: one(users, { fields: [equationBookmarks.userId], references: [users.id] }),
+  group: one(equationGroups, { fields: [equationBookmarks.groupId], references: [equationGroups.id] }),
   variables: many(equationVariables),
+}))
+
+export const equationGroupsRelations = relations(equationGroups, ({ one, many }) => ({
+  user: one(users, { fields: [equationGroups.userId], references: [users.id] }),
+  equations: many(equationBookmarks),
 }))
 
 export const equationVariablesRelations = relations(equationVariables, ({ one }) => ({
@@ -251,6 +257,7 @@ const schema = {
   knowledgeLinksRelations,
   sessionKeywordsRelations,
   equationBookmarksRelations,
+  equationGroupsRelations,
   equationVariablesRelations,
 }
 

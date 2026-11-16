@@ -1,11 +1,11 @@
 import { db } from '@/db'
 import { studySessions } from '@/db/schema/study-sessions'
-import { sessionNotes, knowledgeLinks, sessionKeywords, equationBookmarks, equationVariables } from '@/db/schema/knowledge'
+import { sessionNotes, knowledgeLinks, sessionKeywords, equationGroups, equationBookmarks, equationVariables } from '@/db/schema/knowledge'
 import { unitActivities } from '@/db/schema/activities'
 import { subjects } from '@/db/schema/subjects'
 import { units } from '@/db/schema/units'
 import { unitNotes, unitLinks, unitKeywords } from '@/db/schema/unit-knowledge'
-import { and, asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { cacheAside } from '@/lib/redis/cache'
 import { redisKeys } from '@/lib/redis/keys'
 import { CACHE_TTL } from '@/lib/redis/ttl'
@@ -55,10 +55,29 @@ export async function addEquationBookmark(userId: string, sessionId: string, exp
   return { ...equation, variables: [] }
 }
 
-export async function updateEquationBookmark(userId: string, equationId: string, label: string) {
-  const [equation] = await db.update(equationBookmarks).set({ label: label.trim().slice(0, 255) || 'Important equation', updatedAt: new Date() }).where(and(eq(equationBookmarks.id, equationId), eq(equationBookmarks.userId, userId))).returning()
+export async function updateEquationBookmark(userId: string, equationId: string, data: { label?: string; groupId?: string | null }) {
+  const updates: { label?: string; groupId?: string | null; updatedAt: Date } = { updatedAt: new Date() }
+  if (data.label !== undefined) updates.label = data.label.trim().slice(0, 255) || 'Important equation'
+  if (Object.prototype.hasOwnProperty.call(data, 'groupId')) updates.groupId = data.groupId
+  const [equation] = await db.update(equationBookmarks).set(updates).where(and(eq(equationBookmarks.id, equationId), eq(equationBookmarks.userId, userId))).returning()
   if (!equation) throw new Error('Equation not found')
   return equation
+}
+
+export async function groupEquationBookmarks(userId: string, equationIds: string[]) {
+  const ids = Array.from(new Set(equationIds)).filter(Boolean)
+  if (ids.length < 2) throw new Error('Select at least two equations to group')
+  const rows = await db.select({ id: equationBookmarks.id, groupId: equationBookmarks.groupId, unitId: unitActivities.unitId })
+    .from(equationBookmarks).innerJoin(studySessions, eq(equationBookmarks.sessionId, studySessions.id)).innerJoin(unitActivities, eq(studySessions.activityId, unitActivities.id))
+    .where(and(eq(equationBookmarks.userId, userId), inArray(equationBookmarks.id, ids)))
+  if (rows.length !== ids.length) throw new Error('One or more equations were not found')
+  if (new Set(rows.map((row) => row.unitId)).size !== 1) throw new Error('Equations can only be grouped within the same unit')
+  const existingGroupId = rows.find((row) => row.groupId)?.groupId
+  const [group] = existingGroupId ? [await db.query.equationGroups.findFirst({ where: and(eq(equationGroups.id, existingGroupId), eq(equationGroups.userId, userId)) })] : await db.insert(equationGroups).values({ userId, title: 'Related equations' }).returning()
+  if (!group) throw new Error('Equation group not found')
+  await db.update(equationBookmarks).set({ groupId: group.id, updatedAt: new Date() }).where(and(eq(equationBookmarks.userId, userId), inArray(equationBookmarks.id, ids)))
+  await invalidateUserCaches({ userId })
+  return { groupId: group.id, equationIds: ids }
 }
 
 export async function removeEquationBookmark(userId: string, equationId: string) {
